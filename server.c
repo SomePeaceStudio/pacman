@@ -7,24 +7,19 @@
 #include <netinet/in.h>
 
 // ========================================================================= //
+// TODO/BUG: 
+// 1. JOIN pack NICKNAME receives just 19 char long name instead of char 20
+//    or it seems so...   
+// ========================================================================= //
 
 #define MAXPENDING 5    /* Max connection requests */
-#define BUFFSIZE 32
-
-// #define MAPWIDTH 3
-// #define MAPHEIGHT 3
+#define MAXNICKSIZE 20
 
 #define DEBUG 1
 #define debug_print(fmt, ...) \
             do { if (DEBUG) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
 
 // ------------------------------------------------------------------------- //
-
-typedef struct {
-    char pactype;
-    char response;
-    int id;
-} join_t;
 
 typedef struct {
     char type;
@@ -44,14 +39,6 @@ typedef struct {
     char* nick;
     int score;
 } score_t;
-
-// typedef struct {
-//     char pactype;
-//     // int mapsize[2];
-//     int width;
-//     int height;
-//     int map[MAPWIDTH][MAPHEIGHT];
-// } mappac_t;
 
 // ------------------------------------------------------------------------- //
 
@@ -167,43 +154,30 @@ void printObjectNodeList(objectNode_t *start){
 }
 
 // ========================================================================= //
-
-char receivePacktype(int sock){
-    // char packtype;
-    // int packSize = 1;
-    // if ((recv(sock, &packtype, packSize, 0)) != packSize) {
-    //     Die("Failed to receive initial bytes from client");
-    // }
-    // debug_print("Should be 0 - %c\n", packtype);
-    // debug_print("Should be 0 - %d\n", packtype);
-    
-    char pactype;
-    int received;
-    /* Receive message type*/
-    printf("%s\n", "Receiving packtype ...");
-    if ((received = recv(sock, &pactype, sizeof(pactype), 0)) < 0) {
-        Die("Failed to receive initial bytes from client");
-    }
-    debug_print("Should be 0 - %c\n", pactype);
-    debug_print("Should be 0 - %d\n", pactype);
-
-
-
-    return pactype;
-    // return packtype;
-
-}
-
 void safeSend(int sockfd, const void *buf, size_t len, int flags){
     if (send(sockfd, buf, len, flags) != len) {
         Die("Mismatch in number of sent bytes");
     }
 }
+
 void safeRecv(int sockfd, void *buf, size_t len, int flags){
-    if (recv(sockfd, buf, len, flags) != len) {
+    int received;
+    if ((received = recv(sockfd, buf, len, flags)) != len) {
+        debug_print("Received: %2d bytes, should be: %d\n", received, (int)len);
         Die("Failed to receive bytes from server");
     }
+    debug_print("Received: %2d bytes\n", received);
+    
 }
+
+char receivePacktype(int sock){
+    char packtype;
+    safeRecv(sock, &packtype, 1, 0);
+    debug_print("Received packtype: %d\n", packtype);
+    return packtype;
+}
+
+
 char* allocPack(int size){
     // Init pack with 0 byte
     char* pack = (char*)calloc(1, size);
@@ -211,38 +185,39 @@ char* allocPack(int size){
     if( pack == NULL ){
         Die("Error: Could not allocate memory");
     }
+    return pack;
 }
 
 void HandleClient(int sock) {
     int packSize;
     char* pack;
-
-    //char buffer[BUFFSIZE];
-    int received = -1;
-    int playerId;
-
     char pactype;
+    int playerId;
+    char playerName[MAXNICKSIZE+1];
 
-    /* Receive message type*/
-    printf("%s\n", "Receiving packtype ...");
-    if ((received = recv(sock, &pactype, sizeof(pactype), 0)) < 0) {
-        Die("Failed to receive initial bytes from client");
+    // Get pactype
+    pactype = receivePacktype(sock);
+    
+    if((int)pactype == 0){
+        // Get User Nickname
+        safeRecv(sock, &playerName, MAXNICKSIZE,0);
+        playerName[MAXNICKSIZE] = '\0';
+        debug_print("Received playerName: %s\n", playerName);
+        //TODO: Add player name in player name list
+
+        // Send ACK
+        debug_print("%s\n", "Sending ACK for JOIN");
+        playerId = getId();
+        packSize = 5;
+        pack = allocPack(packSize);
+        pack[0] = 1;
+        memcpy(&pack[1], &playerId, sizeof(playerId));
+        safeSend(sock, pack, packSize, 0);
+        return;
+    }else{
+        //TODO: do something;
     }
-    /* Wait for join request */
-    while (received>0) {
-        printf("%s\n", "Receiving packtype ...");
-        if ((received = recv(sock, &pactype, sizeof(pactype), 0)) < 0) {
-            Die("Failed to receive initial bytes from client");
-        }
-
-        debug_print("Should be 0 - %c\n", pactype);
-        debug_print("Should be 0 - %d\n", pactype);
-    }
-
-
-    // pactype = receivePacktype(sock);
-    debug_print("%c\n", pactype);
-    debug_print("%d\n", pactype);
+    
 
     /* Wait for join request */
     while (1) {
@@ -251,7 +226,6 @@ void HandleClient(int sock) {
         if( (int)pactype == 0){
             /* Send back acknowledgement and client ID */
             playerId = getId();
-
             packSize = 5;
             pack = allocPack(packSize);
             pack[0] = 1;

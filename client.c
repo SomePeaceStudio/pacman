@@ -46,7 +46,7 @@ object_t **MAP2;
 int MAPWIDTH;
 int MAPHEIGHT;
 int playerId;
-char playerName[MAXNICKSIZE] = "pacMonster007";
+char playerName[MAXNICKSIZE+1] = "pacMonster007----END";
 pthread_t  tid;   // Second thread
 //tcb- theard control block.;
 
@@ -155,9 +155,9 @@ int main(int argc, char *argv[]) {
                 sizeof(gameserver)) < 0) {
       Die("Failed to connect with server");
     }
-
+    
     joinGame(sock);
-    return 1;
+    return 0;
     /* Try to join game */
     // packtype = 0;
     // if (send(sock, &type, sizeof(type), 0) != sizeof(type)) {
@@ -257,9 +257,13 @@ void safeSend(int sockfd, const void *buf, size_t len, int flags){
     }
 }
 void safeRecv(int sockfd, void *buf, size_t len, int flags){
-    if (recv(sockfd, buf, len, flags) != len) {
+    int received;
+    if ((received = recv(sockfd, buf, len, flags)) != len) {
+        debug_print("Received: %2d bytes, should be: %d\n", received, (int)len);
         Die("Failed to receive bytes from server");
     }
+    debug_print("Received: %2d bytes\n", received);
+    
 }
 char* allocPack(int size){
     // Init pack with 0 byte
@@ -268,11 +272,15 @@ char* allocPack(int size){
     if( pack == NULL ){
         Die("Error: Could not allocate memory");
     }
+    return pack;
 }
 
 // JoinGame and return playerId
 // return -1 if error
 int joinGame(int sock){
+
+    
+
     int packSize;
     char* pack;
 
@@ -282,22 +290,22 @@ int joinGame(int sock){
         fscanf(stdin, "%s", playerName);
     }
 
+
     packSize = 1 + MAXNICKSIZE;
     pack = allocPack(packSize);
-    pack[0] = 'J';
-    memcpy(&pack[1], playerName, sizeof(playerName));
+    pack[0] = 0;
+    printf("Size of name: %d\n", (int)sizeof(playerName));
+    memcpy(&pack[1], playerName, MAXNICKSIZE);
 
-    // Send join packet
+    // Send JOIN packet
     debug_print("%s\n", "Sending JOIN packet...");
     pack[packSize-1]='\0';
-    debug_print("%d%s\n", pack[0],&pack[1]);
-    safeSend(sock, &pack, packSize, 0);
+    safeSend(sock, pack, packSize, 0);
 
-
+    // Receive ACK
     packSize = 5;
     pack = allocPack(packSize);
-    debug_print("%s\n", "Receiving ACK...");
-    safeRecv(sock, &pack, packSize, 0);
+    safeRecv(sock, pack, packSize, 0);
     debug_print("%s\n", "ACK reveived.");
 
     // ACK packet received
