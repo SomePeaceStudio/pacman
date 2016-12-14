@@ -43,8 +43,12 @@ typedef struct {
 int **MAP;
 object_t **MAP2;
 
+//Unused
 int MAPWIDTH;
 int MAPHEIGHT;
+// Globals
+int mapWidth;
+int mapHeight;
 int playerId;
 char playerName[MAXNICKSIZE+1] = "pacMonster007----END";
 pthread_t  tid;   // Second thread
@@ -53,10 +57,16 @@ pthread_t  tid;   // Second thread
 
 
 // ========================================================================= //
-
+// REDONE
 void Die(char *mess) { perror(mess); exit(1); }
 void safeSend(int sockfd, const void *buf, size_t len, int flags);
 void safeRecv(int sockfd, void *buf, size_t len, int flags);
+char* allocPack(int size);
+int joinGame(int sock);
+char receivePacktype(int sock);
+void waitForStart(int sock);
+
+// TO BE REDONE
 int** allocateGameMap(int width, int height);
 object_t** allocateGameMap2(int width, int height);
 void printMappac();
@@ -66,10 +76,6 @@ void convertMappacToArray2(char* mappac);
 void updateMap();
 void initializeMap();
 char* translateType(int type);
-int joinGame(int sock);
-char* allocPack(int size);
-int joinGame(int sock);
-
 void* actionTherad();   /* Thread function to client actions */
 
 // ========================================================================= //
@@ -157,21 +163,9 @@ int main(int argc, char *argv[]) {
     }
     
     joinGame(sock);
+    waitForStart(sock);
     return 0;
-    /* Try to join game */
-    // packtype = 0;
-    // if (send(sock, &type, sizeof(type), 0) != sizeof(type)) {
-    //     Die("Mismatch in number of sent bytes");
-    // }
-
-    // join_t jbuffer;
-    // /* Receive the id from the server */
-    // if (recv(sock, &jbuffer, sizeof(jbuffer), 0) < 1) {
-    //     Die("Failed to receive bytes from server");
-    // }
-    // playerId = jbuffer.id;
-    // printf("Type: %c Response: %c Id: %d\n", jbuffer.type, jbuffer.response, jbuffer.id);
-    
+       
     //Receive stuff from a server
     pthread_create(&tid, NULL, actionTherad, (void*)(intptr_t) sock);   
     while(1){
@@ -274,12 +268,17 @@ char* allocPack(int size){
     }
     return pack;
 }
+char receivePacktype(int sock){
+    char packtype;
+    safeRecv(sock, &packtype, 1, 0);
+    debug_print("Received packtype: %d\n", packtype);
+    return packtype;
+}
+
 
 // JoinGame and return playerId
 // return -1 if error
 int joinGame(int sock){
-
-    
 
     int packSize;
     char* pack;
@@ -336,6 +335,38 @@ int joinGame(int sock){
         return -1;
     }
 }
+
+// ========================================================================= //
+
+
+void waitForStart(int sock){
+    char packtype;
+    char *pack;
+    int packSize = 4;
+
+    packtype = receivePacktype(sock);
+    if((int)packtype == 2){
+        pack = allocPack(packSize);
+        safeRecv(sock, pack, packSize, 0);
+        // Set map sizes (globals)
+        mapHeight = (int)pack[0];
+        mapWidth = (int)pack[1];
+        debug_print("Received Map sizes, width: %2d  height: %2d plx: %d ply: %d\n",\
+                        mapWidth, mapHeight, (int)pack[2], (int)pack[3] );
+        // TODO: Get player chords
+        // For now I have no idea where to
+        // put them ...
+    }else{
+        //TODO: Do something
+    }
+
+    // Free memory
+    if(pack != 0){
+        free(pack);
+    }
+}
+
+
 
 
 // ========================================================================= //

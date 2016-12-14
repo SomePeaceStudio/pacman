@@ -189,15 +189,14 @@ char* allocPack(int size){
 }
 
 void HandleClient(int sock) {
-    int packSize;
-    char* pack;
+    char *pack;
     char pactype;
+    int packSize;
     int playerId;
     char playerName[MAXNICKSIZE+1];
 
-    // Get pactype
+    //------- JOIN / ACK -------//
     pactype = receivePacktype(sock);
-    
     if((int)pactype == 0){
         // Get User Nickname
         safeRecv(sock, &playerName, MAXNICKSIZE,0);
@@ -213,52 +212,25 @@ void HandleClient(int sock) {
         pack[0] = 1;
         memcpy(&pack[1], &playerId, sizeof(playerId));
         safeSend(sock, pack, packSize, 0);
-        return;
+        free(pack);
     }else{
         //TODO: do something;
     }
-    
 
-    /* Wait for join request */
-    while (1) {
-        printf("Just received type: %d\n", pactype);
-        // Client wants to join the game
-        if( (int)pactype == 0){
-            /* Send back acknowledgement and client ID */
-            playerId = getId();
-            packSize = 5;
-            pack = allocPack(packSize);
-            pack[0] = 1;
-            memcpy(&pack[1], &playerId, sizeof(playerId));
-
-            safeSend(sock, pack, packSize, 0);
-            break;
-        }
-        printf("Just received unknown type: %c\n", pactype);
-        break;
-    }
+    //------- START -------//
+    debug_print("%s\n", "Sending START packet...");
+    packSize = 5;
+    pack = allocPack(packSize);
+    pack[0] = 2;
+    pack[1] = MAPHEIGHT;
+    pack[2] = MAPWIDTH;
+    //TODO: Calculate Where to spawn user;
+    pack[3] = 0;
+    pack[4] = 0;
+    safeSend(sock, pack, packSize, 0);
+    free(pack);
     return;
-    // Send Map
-    // mappac_t mappac = {'M', MAPWIDTH, MAPHEIGHT, {{1,2,3},{4,5,6},{7,8,9}}};
-    debug_print("%s\n", "Sending map...");
-    // int mappack2size = (int)(sizeof(char)+sizeof(int)*2+sizeof(MAP));
-    int mappack2size = (int)(sizeof(char)+sizeof(int)*2);
-    char* mappac2 = (char*)calloc(1,mappack2size);
-    mappac2[0] = 'M';
-    mappac2[1] = MAPWIDTH;
-    mappac2[5] = MAPHEIGHT;
-    //memcpy(&mappac2[9],&MAP, sizeof(MAP));
-
-
-    debug_print("Widht: %d\n", mappac2[1]);
-    debug_print("height: %d\n", mappac2[5]);
-    //printMappac(&mappac2[9]);
-    debug_print("Packsize: %d\n", mappack2size);
-
-    if (send(sock, mappac2, mappack2size, 0) != mappack2size) {
-        Die("Failed to send bytes to client");
-    }
-
+   
     // Add player to the game
     debug_print("Adding player to STATE with id: %d ...\n", playerId);
     object_t player = { '2', playerId, 1, 1};
@@ -302,14 +274,7 @@ void HandleClient(int sock) {
             break;
         } 
     }
-        // /* Send back received data */
-        // if (send(sock, buffer, received, 0) != received) {
-        //     Die("Failed to send bytes to client");
-        // }
-        // /* Check for more data */
-        // if ((received = recv(sock, buffer, BUFFSIZE, 0)) < 0) {
-        //     Die("Failed to receive additional bytes from client");
-        // }
+
     close(sock);
     debug_print("%s\n", "Closed socket!");
     debug_print("%s\n", "Updating state..");
