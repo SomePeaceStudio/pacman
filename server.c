@@ -168,37 +168,102 @@ void printObjectNodeList(objectNode_t *start){
 
 // ========================================================================= //
 
-void HandleClient(int sock) {
-    char buffer[BUFFSIZE];
-    int received = -1;
-    int playerId;
-
+char receivePacktype(int sock){
+    // char packtype;
+    // int packSize = 1;
+    // if ((recv(sock, &packtype, packSize, 0)) != packSize) {
+    //     Die("Failed to receive initial bytes from client");
+    // }
+    // debug_print("Should be 0 - %c\n", packtype);
+    // debug_print("Should be 0 - %d\n", packtype);
+    
     char pactype;
+    int received;
     /* Receive message type*/
     printf("%s\n", "Receiving packtype ...");
     if ((received = recv(sock, &pactype, sizeof(pactype), 0)) < 0) {
         Die("Failed to receive initial bytes from client");
     }
+    debug_print("Should be 0 - %c\n", pactype);
+    debug_print("Should be 0 - %d\n", pactype);
+
+
+
+    return pactype;
+    // return packtype;
+
+}
+
+void safeSend(int sockfd, const void *buf, size_t len, int flags){
+    if (send(sockfd, buf, len, flags) != len) {
+        Die("Mismatch in number of sent bytes");
+    }
+}
+void safeRecv(int sockfd, void *buf, size_t len, int flags){
+    if (recv(sockfd, buf, len, flags) != len) {
+        Die("Failed to receive bytes from server");
+    }
+}
+char* allocPack(int size){
+    // Init pack with 0 byte
+    char* pack = (char*)calloc(1, size);
+    // If did not allocate memory
+    if( pack == NULL ){
+        Die("Error: Could not allocate memory");
+    }
+}
+
+void HandleClient(int sock) {
+    int packSize;
+    char* pack;
+
+    //char buffer[BUFFSIZE];
+    int received = -1;
+    int playerId;
+
+    char pactype;
+
+    /* Receive message type*/
+    printf("%s\n", "Receiving packtype ...");
+    if ((received = recv(sock, &pactype, sizeof(pactype), 0)) < 0) {
+        Die("Failed to receive initial bytes from client");
+    }
+    /* Wait for join request */
+    while (received>0) {
+        printf("%s\n", "Receiving packtype ...");
+        if ((received = recv(sock, &pactype, sizeof(pactype), 0)) < 0) {
+            Die("Failed to receive initial bytes from client");
+        }
+
+        debug_print("Should be 0 - %c\n", pactype);
+        debug_print("Should be 0 - %d\n", pactype);
+    }
+
+
+    // pactype = receivePacktype(sock);
+    debug_print("%c\n", pactype);
+    debug_print("%d\n", pactype);
 
     /* Wait for join request */
-    while (received > 0) {
-        printf("Just received type: %c\n", pactype);
+    while (1) {
+        printf("Just received type: %d\n", pactype);
         // Client wants to join the game
-        if( pactype == 'J'){
+        if( (int)pactype == 0){
             /* Send back acknowledgement and client ID */
             playerId = getId();
-            join_t acknowlgmt;
-            acknowlgmt.pactype = 'J';
-            acknowlgmt.response = 'K';
-            acknowlgmt.id = playerId;
-            if (send(sock, &acknowlgmt, sizeof(acknowlgmt), 0) != sizeof(acknowlgmt)) {
-                Die("Failed to send bytes to client");
-            }
+
+            packSize = 5;
+            pack = allocPack(packSize);
+            pack[0] = 1;
+            memcpy(&pack[1], &playerId, sizeof(playerId));
+
+            safeSend(sock, pack, packSize, 0);
             break;
         }
         printf("Just received unknown type: %c\n", pactype);
+        break;
     }
-
+    return;
     // Send Map
     // mappac_t mappac = {'M', MAPWIDTH, MAPHEIGHT, {{1,2,3},{4,5,6},{7,8,9}}};
     debug_print("%s\n", "Sending map...");

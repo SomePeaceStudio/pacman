@@ -9,7 +9,8 @@
 #include <pthread.h>
 
 
-#define BUFFSIZE 32
+// #define BUFFSIZE 32
+#define MAXNICKSIZE 20
 #define DEBUG 1
 #define debug_print(fmt, ...) \
             do { if (DEBUG) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
@@ -21,6 +22,8 @@
 #define ANSI_COLOR_MAGENTA "\x1b[35m"
 #define ANSI_COLOR_CYAN    "\x1b[36m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
+
+// ------------------------------------------------------------------------- //
 
 typedef struct {
     char type;
@@ -43,6 +46,7 @@ object_t **MAP2;
 int MAPWIDTH;
 int MAPHEIGHT;
 int playerId;
+char playerName[MAXNICKSIZE] = "pacMonster007";
 pthread_t  tid;   // Second thread
 //tcb- theard control block.;
 
@@ -51,6 +55,8 @@ pthread_t  tid;   // Second thread
 // ========================================================================= //
 
 void Die(char *mess) { perror(mess); exit(1); }
+void safeSend(int sockfd, const void *buf, size_t len, int flags);
+void safeRecv(int sockfd, void *buf, size_t len, int flags);
 int** allocateGameMap(int width, int height);
 object_t** allocateGameMap2(int width, int height);
 void printMappac();
@@ -60,6 +66,9 @@ void convertMappacToArray2(char* mappac);
 void updateMap();
 void initializeMap();
 char* translateType(int type);
+int joinGame(int sock);
+char* allocPack(int size);
+int joinGame(int sock);
 
 void* actionTherad();   /* Thread function to client actions */
 
@@ -121,43 +130,47 @@ void printObj(object_t obj){
 
 int main(int argc, char *argv[]) {
     int sock;
-    struct sockaddr_in echoserver;
-    char buffer[BUFFSIZE];
-    unsigned int echolen;
-    int received = 0;
+    struct sockaddr_in gameserver;
+    char packtype;
 
-    if (argc != 4) {
-      fprintf(stderr, "USAGE: TCPecho <server_ip> <word> <port>\n");
+    if (argc != 3) {
+      fprintf(stderr, "USAGE: client <server_ip> <port>\n");
       exit(1);
     }
+
     /* Create the TCP socket */
     if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
       Die("Failed to create socket");
     }
+
     /* Construct the server sockaddr_in structure */
-    memset(&echoserver, 0, sizeof(echoserver));       /* Clear struct */
-    echoserver.sin_family = AF_INET;                  /* Internet/IP */
-    echoserver.sin_addr.s_addr = inet_addr(argv[1]);  /* IP address */
-    echoserver.sin_port = htons(atoi(argv[3]));       /* server port */
+    memset(&gameserver, 0, sizeof(gameserver));       /* Clear struct */
+    gameserver.sin_family = AF_INET;                  /* Internet/IP */
+    gameserver.sin_addr.s_addr = inet_addr(argv[1]);  /* IP address */
+    gameserver.sin_port = htons(atoi(argv[2]));       /* server port */
+
     /* Establish connection */
     if (connect(sock,
-                (struct sockaddr *) &echoserver,
-                sizeof(echoserver)) < 0) {
+                (struct sockaddr *) &gameserver,
+                sizeof(gameserver)) < 0) {
       Die("Failed to connect with server");
     }
-    /* Try to join game */
-    char type = 'J';
-    if (send(sock, &type, sizeof(type), 0) != sizeof(type)) {
-        Die("Mismatch in number of sent bytes");
-    }
 
-    join_t jbuffer;
-    /* Receive the id from the server */
-    if (recv(sock, &jbuffer, sizeof(jbuffer), 0) < 1) {
-        Die("Failed to receive bytes from server");
-    }
-    playerId = jbuffer.id;
-    printf("Type: %c Response: %c Id: %d\n", jbuffer.type, jbuffer.response, jbuffer.id);
+    joinGame(sock);
+    return 1;
+    /* Try to join game */
+    // packtype = 0;
+    // if (send(sock, &type, sizeof(type), 0) != sizeof(type)) {
+    //     Die("Mismatch in number of sent bytes");
+    // }
+
+    // join_t jbuffer;
+    // /* Receive the id from the server */
+    // if (recv(sock, &jbuffer, sizeof(jbuffer), 0) < 1) {
+    //     Die("Failed to receive bytes from server");
+    // }
+    // playerId = jbuffer.id;
+    // printf("Type: %c Response: %c Id: %d\n", jbuffer.type, jbuffer.response, jbuffer.id);
     
     //Receive stuff from a server
     pthread_create(&tid, NULL, actionTherad, (void*)(intptr_t) sock);   
@@ -235,6 +248,87 @@ int main(int argc, char *argv[]) {
    	close(sock);
    	exit(0);
 }
+
+// ========================================================================= //
+
+void safeSend(int sockfd, const void *buf, size_t len, int flags){
+    if (send(sockfd, buf, len, flags) != len) {
+        Die("Mismatch in number of sent bytes");
+    }
+}
+void safeRecv(int sockfd, void *buf, size_t len, int flags){
+    if (recv(sockfd, buf, len, flags) != len) {
+        Die("Failed to receive bytes from server");
+    }
+}
+char* allocPack(int size){
+    // Init pack with 0 byte
+    char* pack = (char*)calloc(1, size);
+    // If did not allocate memory
+    if( pack == NULL ){
+        Die("Error: Could not allocate memory");
+    }
+}
+
+// JoinGame and return playerId
+// return -1 if error
+int joinGame(int sock){
+    int packSize;
+    char* pack;
+
+    debug_print("%s\n", "Getting player name...");
+    // Ask for player name if not predefined 
+    if(playerName == NULL || strlen(playerName) < 1){
+        fscanf(stdin, "%s", playerName);
+    }
+
+    packSize = 1 + MAXNICKSIZE;
+    pack = allocPack(packSize);
+    pack[0] = 'J';
+    memcpy(&pack[1], playerName, sizeof(playerName));
+
+    // Send join packet
+    debug_print("%s\n", "Sending JOIN packet...");
+    pack[packSize-1]='\0';
+    debug_print("%d%s\n", pack[0],&pack[1]);
+    safeSend(sock, &pack, packSize, 0);
+
+
+    packSize = 5;
+    pack = allocPack(packSize);
+    debug_print("%s\n", "Receiving ACK...");
+    safeRecv(sock, &pack, packSize, 0);
+    debug_print("%s\n", "ACK reveived.");
+
+    // ACK packet received
+    if(pack[0] == 1){
+        int id = pack[1]; 
+        debug_print("Received Id: %d\n", id);
+        if(id > 0){
+            return (int)pack[1];
+        }
+        // Check for error type
+        if( id == -1){
+            printf("%s\n", "Could not join Server, reason: \
+                                Player name is already taken");
+            return -1;
+        }
+        if( id == -2){
+            printf("%s\n", "Could not join Server, \
+                                reason: Server is full");
+            return -1;
+        }
+        if( id == -3){
+            printf("%s\n", "Could not join Server, \
+                                reason: Unknown");
+            return -1;
+        }
+    }else{
+        //TODO: Do something.
+        return -1;
+    }
+}
+
 
 // ========================================================================= //
 
