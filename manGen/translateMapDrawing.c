@@ -4,9 +4,19 @@
 
 #define MAXBUFF 255
 
-char empty 	= '~';	int emptyVal 	= 0;
-char wall 	= '=';	int wallVal 	= 1;
-char point 	= '.';	int pointVal 	= 3;
+//  None	= 0
+//  Dot		= 1
+//  Wall	= 2
+//  PowerPellet		= 3
+//  Invincibility	= 4
+//  Score	= 5
+
+char empty 			= '~';	int emptyVal 			= 0;
+char point 			= '.';	int pointVal 			= 1;
+char wall 			= '=';	int wallVal 			= 2;
+char powerPellet 	= '*';	int powerPelletVal 		= 3;
+char invincibility 	= '#';	int invincibilityVal 	= 4;
+char score 			= '$';	int scoreVal 			= 5;
 
 void Die(char *mess) { perror(mess); exit(1); }
 #define DEBUG 1
@@ -59,6 +69,18 @@ int main(int argc, char const *argv[])
 	    	}
 	    	if(buffer[i] == point){
 	    		fprintf(tempFile, "%d %d %d\n", pointVal, mapHeight, i);
+	    		continue;
+	    	}
+	    	if(buffer[i] == powerPellet){
+	    		fprintf(tempFile, "%d %d %d\n", powerPelletVal, mapHeight, i);
+	    		continue;
+	    	}
+	    	if(buffer[i] == invincibility){
+	    		fprintf(tempFile, "%d %d %d\n", invincibilityVal, mapHeight, i);
+	    		continue;
+	    	}
+	    	if(buffer[i] == score){
+	    		fprintf(tempFile, "%d %d %d\n", scoreVal, mapHeight, i);
 	    		continue;
 	    	}
 	    }

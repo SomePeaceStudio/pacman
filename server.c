@@ -6,6 +6,13 @@
 #include <unistd.h>
 #include <netinet/in.h>
 
+#define DEBUG 1
+#define debug_print(fmt, ...) \
+            do { if (DEBUG) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
+
+// Shared functions for client and server
+#include "shared.c"
+
 // ========================================================================= //
 // TODO/BUG: 
 // 1. JOIN pack NICKNAME receives just 19 char long name instead of char 20
@@ -14,10 +21,6 @@
 
 #define MAXPENDING 5    /* Max connection requests */
 #define MAXNICKSIZE 20
-
-#define DEBUG 1
-#define debug_print(fmt, ...) \
-            do { if (DEBUG) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
 
 // ------------------------------------------------------------------------- //
 
@@ -40,19 +43,21 @@ typedef struct {
     int score;
 } score_t;
 
+
 // ------------------------------------------------------------------------- //
 
 int ID = 0;
 // int MAP[MAPWIDTH][MAPHEIGHT] = {{0,0,0},{0,1,0},{0,0,0}};
 // object_t STATE[MAPWIDTH][3] = {{{},{},{}},{{},{},{}},{{},{},{}}};
 objectNode_t *STATE;
+
+int** MAP;
 int stateObjCount = 0;
 int MAPHEIGHT;
 int MAPWIDTH;
 
 // ========================================================================= //
 
-void Die(char *mess) { perror(mess); exit(1); }
 int getId() { return ID++; }
 void printMappac(char* mappac);
 int deleteObjectNode(objectNode_t **start, objectNode_t *node);
@@ -154,39 +159,6 @@ void printObjectNodeList(objectNode_t *start){
 }
 
 // ========================================================================= //
-void safeSend(int sockfd, const void *buf, size_t len, int flags){
-    if (send(sockfd, buf, len, flags) != len) {
-        Die("Mismatch in number of sent bytes");
-    }
-}
-
-void safeRecv(int sockfd, void *buf, size_t len, int flags){
-    int received;
-    if ((received = recv(sockfd, buf, len, flags)) != len) {
-        debug_print("Received: %2d bytes, should be: %d\n", received, (int)len);
-        Die("Failed to receive bytes from server");
-    }
-    debug_print("Received: %2d bytes\n", received);
-    
-}
-
-char receivePacktype(int sock){
-    char packtype;
-    safeRecv(sock, &packtype, 1, 0);
-    debug_print("Received packtype: %d\n", packtype);
-    return packtype;
-}
-
-
-char* allocPack(int size){
-    // Init pack with 0 byte
-    char* pack = (char*)calloc(1, size);
-    // If did not allocate memory
-    if( pack == NULL ){
-        Die("Error: Could not allocate memory");
-    }
-    return pack;
-}
 
 void HandleClient(int sock) {
     char *pack;
@@ -315,7 +287,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }    
 
-    // int mapWidth, mapHeight;
     object_t obj;
     debug_print("%s\n", "Reading Map File...");
     if(fscanf(mapFile, "%d %d ", &MAPWIDTH, &MAPHEIGHT) == 0){
@@ -323,15 +294,23 @@ int main(int argc, char *argv[]) {
     }
     debug_print("Map width: %d, Map height: %d\n", MAPWIDTH, MAPHEIGHT);
 
-    while(fscanf(mapFile, " %c %lf %lf ", &(obj.type), &(obj.x), (&obj.y)) > 0) {
-        obj.id = getId();
-        obj.status = 0;
-        addObjectNode(&STATE, createObjectNode(&obj));
+    MAP = allocateGameMap(MAPWIDTH, MAPHEIGHT);
+    //debug_print("%s\n", "Allocated MAP");
+    //printMap(MAP,MAPWIDTH,MAPHEIGHT);
+    //MAP[6][0] = 2;
+    //debug_print("%s\n", "DONE!");
+    
+    int type,x,y;
+    while(fscanf(mapFile, " %d %d %d ", &type, &x, &y) > 0) {
+        printf("putting x:%d y:%d type:%d\n", x,y,type);
+        // sleep(0.5);
+        // MAP[x][y] = type;
     }
     if(fclose(mapFile) != 0){
         printf("%s\n", "Could not close mapFile");
     }
-    printObjectNodeList(STATE); 
+    //printMap(MAP,MAPWIDTH,MAPHEIGHT);
+    return 0;
     // --------------------------------------------------------------------- //
 
     /* Listen on the server socket */
@@ -479,3 +458,30 @@ void sendStateUpdate(int sock){
     // mappac.width = MAPWIDTH;
     // mappac.height = MAPHEIGHT;
     // mappac.map = {{0,0,0},{0,0,0},{0,0,0}};
+
+
+    // // -------------INITIALIZE MAP------------------------------------------ //
+    // FILE *mapFile;
+    // if((mapFile = fopen(argv[2], "r")) == NULL){
+    //     Die("Could not open mapFile");
+    //     return 1;
+    // }    
+
+    // // int mapWidth, mapHeight;
+    // object_t obj;
+    // debug_print("%s\n", "Reading Map File...");
+    // if(fscanf(mapFile, "%d %d ", &MAPWIDTH, &MAPHEIGHT) == 0){
+    //     Die("Could not read map's widht and height");
+    // }
+    // debug_print("Map width: %d, Map height: %d\n", MAPWIDTH, MAPHEIGHT);
+
+    // while(fscanf(mapFile, " %c %lf %lf ", &(obj.type), &(obj.x), (&obj.y)) > 0) {
+    //     obj.id = getId();
+    //     obj.status = 0;
+    //     addObjectNode(&STATE, createObjectNode(&obj));
+    // }
+    // if(fclose(mapFile) != 0){
+    //     printf("%s\n", "Could not close mapFile");
+    // }
+    // printObjectNodeList(STATE); 
+    // // --------------------------------------------------------------------- //

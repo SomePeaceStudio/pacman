@@ -8,20 +8,14 @@
 #include <math.h>
 #include <pthread.h>
 
-
-// #define BUFFSIZE 32
-#define MAXNICKSIZE 20
 #define DEBUG 1
 #define debug_print(fmt, ...) \
             do { if (DEBUG) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
 
-#define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_YELLOW  "\x1b[33m"
-#define ANSI_COLOR_BLUE    "\x1b[34m"
-#define ANSI_COLOR_MAGENTA "\x1b[35m"
-#define ANSI_COLOR_CYAN    "\x1b[36m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
+// Shared functions for client and server
+#include "shared.c"
+
+#define MAXNICKSIZE 20
 
 // ------------------------------------------------------------------------- //
 
@@ -58,19 +52,14 @@ pthread_t  tid;   // Second thread
 
 // ========================================================================= //
 // REDONE
-void Die(char *mess) { perror(mess); exit(1); }
-void safeSend(int sockfd, const void *buf, size_t len, int flags);
-void safeRecv(int sockfd, void *buf, size_t len, int flags);
-char* allocPack(int size);
 int joinGame(int sock);
 char receivePacktype(int sock);
 void waitForStart(int sock);
 
 // TO BE REDONE
-int** allocateGameMap(int width, int height);
+// int** allocateGameMap(int width, int height);
 object_t** allocateGameMap2(int width, int height);
 void printMappac();
-void printMap();
 void convertMappacToArray(char* mappac);
 void convertMappacToArray2(char* mappac);
 void updateMap();
@@ -200,7 +189,7 @@ int main(int argc, char *argv[]) {
                 received += sizeof(object_t);
                 debug_print("Received %d bytes.\n", received);
             }
-            printMap();
+            printMap(MAP, MAPWIDTH, MAPHEIGHT);
             continue;
         }
 
@@ -244,37 +233,6 @@ int main(int argc, char *argv[]) {
 }
 
 // ========================================================================= //
-
-void safeSend(int sockfd, const void *buf, size_t len, int flags){
-    if (send(sockfd, buf, len, flags) != len) {
-        Die("Mismatch in number of sent bytes");
-    }
-}
-void safeRecv(int sockfd, void *buf, size_t len, int flags){
-    int received;
-    if ((received = recv(sockfd, buf, len, flags)) != len) {
-        debug_print("Received: %2d bytes, should be: %d\n", received, (int)len);
-        Die("Failed to receive bytes from server");
-    }
-    debug_print("Received: %2d bytes\n", received);
-    
-}
-char* allocPack(int size){
-    // Init pack with 0 byte
-    char* pack = (char*)calloc(1, size);
-    // If did not allocate memory
-    if( pack == NULL ){
-        Die("Error: Could not allocate memory");
-    }
-    return pack;
-}
-char receivePacktype(int sock){
-    char packtype;
-    safeRecv(sock, &packtype, 1, 0);
-    debug_print("Received packtype: %d\n", packtype);
-    return packtype;
-}
-
 
 // JoinGame and return playerId
 // return -1 if error
@@ -338,7 +296,6 @@ int joinGame(int sock){
 
 // ========================================================================= //
 
-
 void waitForStart(int sock){
     char packtype;
     char *pack;
@@ -364,29 +321,6 @@ void waitForStart(int sock){
     if(pack != 0){
         free(pack);
     }
-}
-
-
-
-
-// ========================================================================= //
-
-int** allocateGameMap(int width, int height){
-    int** map;
-    map = (int**)malloc(sizeof(int)*height);
-    // If did not allocate memory
-    if( map == NULL ){
-        printf("%s\n", "Error: Could not allocate memory");
-        exit(1);
-    }
-    for (int i = 0; i < height; i++){
-        map[i] = malloc(sizeof *map[i] * width);
-        if( map[i] == NULL ){
-            printf("%s\n", "Error: Could not allocate memory");
-            exit(1);
-        }
-    }
-    return map;
 }
 
 // ========================================================================= //
@@ -419,34 +353,6 @@ void printMappac(char* mappac){
         }        
     }
 }
-
-// ========================================================================= //
-
-void printMap(){
-    for (int i = 0; i < MAPHEIGHT; ++i){
-        for (int j = 0; j < MAPWIDTH; ++j){
-           printf(" %s", translateType(MAP2[i][j].type));
-        }
-        printf("\n");
-    }
-};
-
-char* translateType(int type){
-    if (type == '0'){
-        return "~";
-    }
-    if (type == '1'){
-        return "=";
-    }
-    if (type == '2'){
-        return ANSI_COLOR_RED "@" ANSI_COLOR_RESET;
-    }
-    if (type == '3'){
-        return ".";
-    }
-    return "E"; // E for Error
-}
-
 
 // ========================================================================= //
 
