@@ -1,10 +1,22 @@
-# packman
+# pacman
 
-You must compile client like:
-gcc -pthread -o client  client.c
+##Building
+Code is compiled using gcc compiler by default. To compile client and server, simply run `make` in the project root directory.
 
-Run client like:
+The makefile also contains the following rules:
+* all (default)
+* client
+* server
+* clean
+* rebuild
+
+##Running
+Client:
+```
 ./client 127.0.0.1 < port >
+```
 
-Run server like:
+Server:
+```
 ./server < port > map
+```
