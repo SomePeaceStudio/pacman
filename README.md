@@ -13,10 +13,10 @@ The makefile also contains the following rules:
 ##Running
 Client:
 ```
-./client 127.0.0.1 < port >
+bin/client 127.0.0.1 < port >
 ```
 
 Server:
 ```
-./server < port > map
+bin/server < port > map
 ```
