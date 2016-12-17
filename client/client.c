@@ -13,7 +13,7 @@
             do { if (DEBUG) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
 
 // Shared functions for client and server
-#include "shared.c"
+#include "../shared/shared.c"
 
 #define MAXNICKSIZE 20
 
