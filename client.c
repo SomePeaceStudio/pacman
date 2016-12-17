@@ -18,6 +18,10 @@
 #define MAXNICKSIZE 20
 
 // ------------------------------------------------------------------------- //
+//                      TODO NEXT
+// 1. convert received map into int** MAP
+//
+// ------------------------------------------------------------------------- //
 
 typedef struct {
     char type;
@@ -34,13 +38,13 @@ typedef struct {
 } object_t;
 
 
-int **MAP;
-object_t **MAP2;
-
 //Unused
+object_t **MAP2;
 int MAPWIDTH;
 int MAPHEIGHT;
+
 // Globals
+int **MAP;
 int mapWidth;
 int mapHeight;
 int playerId;
@@ -55,16 +59,17 @@ pthread_t  tid;   // Second thread
 int joinGame(int sock);
 char receivePacktype(int sock);
 void waitForStart(int sock);
+void updateMap();
 
 // TO BE REDONE
 // int** allocateGameMap(int width, int height);
-object_t** allocateGameMap2(int width, int height);
-void printMappac();
-void convertMappacToArray(char* mappac);
-void convertMappacToArray2(char* mappac);
-void updateMap();
-void initializeMap();
-char* translateType(int type);
+// object_t** allocateGameMap2(int width, int height);
+// void printMappac();
+// void convertMappacToArray(char* mappac);
+// void convertMappacToArray2(char* mappac);
+
+// void initializeMap();
+// char* translateType(int type);
 void* actionTherad();   /* Thread function to client actions */
 
 // ========================================================================= //
@@ -128,6 +133,9 @@ int main(int argc, char *argv[]) {
     struct sockaddr_in gameserver;
     char packtype;
 
+    char* pack;
+    int packSize;
+
     if (argc != 3) {
       fprintf(stderr, "USAGE: client <server_ip> <port>\n");
       exit(1);
@@ -153,78 +161,58 @@ int main(int argc, char *argv[]) {
     
     joinGame(sock);
     waitForStart(sock);
-    return 0;
        
     //Receive stuff from a server
-    pthread_create(&tid, NULL, actionTherad, (void*)(intptr_t) sock);   
+    //pthread_create(&tid, NULL, actionTherad, (void*)(intptr_t) sock);   
+    
     while(1){
-        char pactype = '0';
-        /* Receive message type*/
-        debug_print("%s\n", "Receiving packtype...");
-        if (recv(sock, &pactype, sizeof(pactype), 0) < 0) {
-            Die("Failed to receive packtype from server");
-        }
-        debug_print("Received pactype: %c\n", pactype);
+        packtype = receivePacktype(sock);
+        // Receive MAP
+        if(packtype = 4){
+            debug_print("%s\n", "Getting MAP pack...");
 
-        if(pactype == 'U'){
-            /* Receive the map size from the server */
-            int received = 1; 
-            debug_print("%s\n", "Receiving pac size...");
-            int updateSize;
-            if (recv(sock, &updateSize, sizeof(updateSize), 0) < 1) {
-                Die("Failed to receive updateSize from server");
-            }
-            debug_print("Received map object count: %2d\n", updateSize);
-            received += sizeof(updateSize);
-            for(int i = 0; i < updateSize; ++i){
-                object_t objectBuffer;
-                debug_print("Receiving %d. obj.\n", i+1);
-                if (recv(sock, &objectBuffer, sizeof(object_t), 0) < 1) {
-                    Die("Failed to receive updateSize from server");
-                }
-                printObj(objectBuffer);
-                updateMap(objectBuffer);
-                debug_print("%s\n", "Updated Map:");
-                //printMap();
-                received += sizeof(object_t);
-                debug_print("Received %d bytes.\n", received);
-            }
-            printMap(MAP, MAPWIDTH, MAPHEIGHT);
-            continue;
+            packSize = mapHeight*mapWidth;
+            pack = allocPack(packSize);
+
+            safeRecv(sock, pack, packSize, 0);
+            printMappacPretty(pack, mapWidth, mapHeight);
+            free(pack);
         }
 
-        if(pactype == 'M'){
-            /* Receive the map size from the server */
-            debug_print("%s\n", "Receiving map height/widht...");
-            char* mapsize = malloc(sizeof(int)*2);
-            if (recv(sock, mapsize, sizeof(int)*2, 0) < 1) {
-                Die("Failed to receive mapsize from server");
-            }
-            debug_print("Received Map width: %d\n", mapsize[0]);
-            debug_print("Received Map height: %d\n", mapsize[4]);
+        return 0;
+        // Update map
+        // if(pactype == 'U'){
+        //     /* Receive the map size from the server */
+        //     int received = 1; 
+        //     debug_print("%s\n", "Receiving pac size...");
+        //     int updateSize;
+        //     if (recv(sock, &updateSize, sizeof(updateSize), 0) < 1) {
+        //         Die("Failed to receive updateSize from server");
+        //     }
+        //     debug_print("Received map object count: %2d\n", updateSize);
+        //     received += sizeof(updateSize);
+        //     for(int i = 0; i < updateSize; ++i){
+        //         object_t objectBuffer;
+        //         debug_print("Receiving %d. obj.\n", i+1);
+        //         if (recv(sock, &objectBuffer, sizeof(object_t), 0) < 1) {
+        //             Die("Failed to receive updateSize from server");
+        //         }
+        //         printObj(objectBuffer);
+        //         updateMap(objectBuffer);
+        //         debug_print("%s\n", "Updated Map:");
+        //         //printMap();
+        //         received += sizeof(object_t);
+        //         debug_print("Received %d bytes.\n", received);
+        //     }
+        //     //printMap(MAP, MAPWIDTH, MAPHEIGHT);
+        //     continue;
+        // }
 
-            MAPWIDTH = (int)mapsize[0];
-            MAPHEIGHT = (int)mapsize[4];
-            initializeMap();
-
-            //Unused now...
-            continue;
-            // int msize = sizeof(int)*MAPWIDTH*MAPHEIGHT;
-            // debug_print("Map size: %d\n", msize);
-
-            // /* Receive the map from the server */
-            // char* map = malloc(msize);
-            // debug_print("%s\n", "Receiving...");
-            // if (recv(sock, map, msize, 0) < 1) {
-            //     Die("Failed to receive map from server");
-            // }
-            // convertMappacToArray(map);
-            // printMap();
-        }
+        
         // Connection has been lost
-        if(pactype == '0'){
-            break;
-        }   
+        // if(pactype == '0'){
+        //     break;
+        // }   
     }
 
     fprintf(stdout, "\n");
@@ -256,7 +244,6 @@ int joinGame(int sock){
 
     // Send JOIN packet
     debug_print("%s\n", "Sending JOIN packet...");
-    pack[packSize-1]='\0';
     safeSend(sock, pack, packSize, 0);
 
     // Receive ACK
@@ -310,6 +297,7 @@ void waitForStart(int sock){
         mapWidth = (int)pack[1];
         debug_print("Received Map sizes, width: %2d  height: %2d plx: %d ply: %d\n",\
                         mapWidth, mapHeight, (int)pack[2], (int)pack[3] );
+        MAP = allocateGameMap(mapWidth, mapHeight);
         // TODO: Get player chords
         // For now I have no idea where to
         // put them ...
@@ -341,17 +329,6 @@ object_t** allocateGameMap2(int width, int height){
         }
     }
     return map;
-}
-
-// ========================================================================= //
-
-void printMappac(char* mappac){
-    for (int i = 0; i < MAPHEIGHT*MAPWIDTH; ++i){
-        printf("%3d", *((int*)mappac+i) );
-        if((i+1) % MAPWIDTH == 0){
-            printf("\n");
-        }        
-    }
 }
 
 // ========================================================================= //
@@ -450,16 +427,3 @@ void updateMap(object_t update){
         printObj(MAP2[x][y]);
     }
 }
-
-
-
-
-// debug_print("Received Map MAP: %d\n", map[0]);
-// debug_print("Received Map MAP: %d\n", map[4]);
-// debug_print("Received Map MAP: %d\n", map[8]);
-// debug_print("Received Map MAP: %d\n", map[12]);
-// debug_print("Received Map MAP: %d\n", map[16]);
-// debug_print("Received Map MAP: %d\n", map[20]);
-// debug_print("Received Map MAP: %d\n", map[24]);
-// debug_print("Received Map MAP: %d\n", map[28]);
-// debug_print("Received Map MAP: %d\n", map[32]);

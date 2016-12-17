@@ -120,3 +120,44 @@ void printMap(int** map, int width, int height){
 };
 
 // ========================================================================= //
+
+char* makeMapPack(int** map, int width, int height){
+    int packSize;
+    char* pack;
+
+    packSize = 1 + width * height;
+    pack = allocPack(packSize);
+    pack[0] = 4;
+
+    char* cur = &pack[1];
+    for (int i = 0; i < height; ++i){
+        for (int j = 0; j < width; ++j){
+            *cur = map[i][j];
+            cur++;
+        }
+    }
+
+    return pack;
+}
+
+// ========================================================================= //
+
+void printMappacPretty(char* mappac, int width, int height){
+    for (int i = 0; i < width*height; ++i){
+        printf(" %s", translateType(*(mappac+i)) );
+        if((i+1) % width == 0){
+            printf("\n");
+        }        
+    }
+}
+
+// ========================================================================= //
+
+void printMappac(char* mappac, int width, int height){
+    for (int i = 0; i < width*height; ++i){
+        printf("%3d", *(mappac+i) );
+        if((i+1) % width == 0){
+            printf("\n");
+        }        
+    }
+}

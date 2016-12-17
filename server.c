@@ -16,7 +16,7 @@
 // ========================================================================= //
 // TODO/BUG: 
 // 1. JOIN pack NICKNAME receives just 19 char long name instead of char 20
-//    or it seems so...   
+//    or it seems so...    - FIXED
 // ========================================================================= //
 
 #define MAXPENDING 5    /* Max connection requests */
@@ -63,6 +63,7 @@ void printMappac(char* mappac);
 int deleteObjectNode(objectNode_t **start, objectNode_t *node);
 void updateState(int id,int x,int y);
 void sendStateUpdate(int sock);
+void sendMapUpdate(int sock);
 
 // ========================================================================= //
 
@@ -201,17 +202,12 @@ void HandleClient(int sock) {
     pack[4] = 0;
     safeSend(sock, pack, packSize, 0);
     free(pack);
-    return;
-   
-    // Add player to the game
-    debug_print("Adding player to STATE with id: %d ...\n", playerId);
-    object_t player = { '2', playerId, 1, 1};
-    addObjectNodeEnd(&STATE, createObjectNode(&player));
-    debug_print("%s\n", "New State:");
-    printObjectNodeList(STATE);
 
-    // Send State Update 
-    sendStateUpdate(sock);
+    // Send Map Update 
+    sendMapUpdate(sock);
+
+    return;
+
 
     // Main GAME loop
     while(1){
@@ -309,7 +305,6 @@ int main(int argc, char *argv[]) {
 
     printMap(MAP,MAPWIDTH,MAPHEIGHT);
     
-    return 0;
     // --------------------------------------------------------------------- //
 
     /* Listen on the server socket */
@@ -344,6 +339,7 @@ void printMappac(char* mappac){
 
 // ========================================================================= //
 
+//UNUSED 
 void updateState(int id,int x,int y){
     objectNode_t* client = 0;
     for(objectNode_t *current = STATE; current != 0; current = current->next){
@@ -420,6 +416,7 @@ void updateState(int id,int x,int y){
 
 // ========================================================================= //
 
+//UNUSED 
 void sendStateUpdate(int sock){
     int newStateSize = (int)(sizeof(char)+sizeof(int)+sizeof(object_t)*stateObjCount);
     char* newState = (char*)calloc(1,newStateSize);
@@ -441,46 +438,22 @@ void sendStateUpdate(int sock){
     printf("%s\n", "Sent State to the client!");
 }
 
+// ========================================================================= //
 
+void sendMapUpdate(int sock){
+    int packSize;
+    char* pack;
 
+    packSize = 1 + MAPWIDTH * MAPHEIGHT;
+    pack = makeMapPack(MAP, MAPWIDTH, MAPHEIGHT);
+    // pack = allocPack(packSize);
+    // pack[0] = 4;
+    // memcpy(&pack[1], *MAP, MAPWIDTH * MAPHEIGHT);
 
+    // Send MAP packet
+    debug_print("%s\n", "Sending MAP packet...");
+    safeSend(sock, pack, packSize, 0);
+}
 
+// ========================================================================= //
 
-
-
-
-
-
-
-// mappac_t mappac;
-    // mappac.pactype = 'M';
-    // mappac.width = MAPWIDTH;
-    // mappac.height = MAPHEIGHT;
-    // mappac.map = {{0,0,0},{0,0,0},{0,0,0}};
-
-
-    // // -------------INITIALIZE MAP------------------------------------------ //
-    // FILE *mapFile;
-    // if((mapFile = fopen(argv[2], "r")) == NULL){
-    //     Die("Could not open mapFile");
-    //     return 1;
-    // }    
-
-    // // int mapWidth, mapHeight;
-    // object_t obj;
-    // debug_print("%s\n", "Reading Map File...");
-    // if(fscanf(mapFile, "%d %d ", &MAPWIDTH, &MAPHEIGHT) == 0){
-    //     Die("Could not read map's widht and height");
-    // }
-    // debug_print("Map width: %d, Map height: %d\n", MAPWIDTH, MAPHEIGHT);
-
-    // while(fscanf(mapFile, " %c %lf %lf ", &(obj.type), &(obj.x), (&obj.y)) > 0) {
-    //     obj.id = getId();
-    //     obj.status = 0;
-    //     addObjectNode(&STATE, createObjectNode(&obj));
-    // }
-    // if(fclose(mapFile) != 0){
-    //     printf("%s\n", "Could not close mapFile");
-    // }
-    // printObjectNodeList(STATE); 
-    // // --------------------------------------------------------------------- //
