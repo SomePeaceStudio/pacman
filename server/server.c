@@ -10,7 +10,6 @@
 #include "../shared/shared.h"
 
 #define MAXPENDING 5    /* Max connection requests */
-#define MAXNICKSIZE 20
 
 // ------------------------------------------------------------------------- //
 
@@ -140,14 +139,14 @@ void HandleClient(int sock) {
     char pactype;
     int packSize;
     int playerId;
-    char playerName[MAXNICKSIZE+1];
+    char playerName[MAX_NICK_SIZE+1];
 
     //------- JOIN / ACK -------//
     pactype = receivePacktype(sock);
-    if((int)pactype == PT_JOIN){
+    if((int)pactype == PTYPE_JOIN){
         // Get User Nickname
-        safeRecv(sock, &playerName, MAXNICKSIZE,0);
-        playerName[MAXNICKSIZE] = '\0';
+        safeRecv(sock, &playerName, MAX_NICK_SIZE,0);
+        playerName[MAX_NICK_SIZE] = '\0';
         debug_print("Received playerName: %s\n", playerName);
         //TODO: Add player name in player name list
 
@@ -156,7 +155,7 @@ void HandleClient(int sock) {
         playerId = getId();
         packSize = 5;
         pack = allocPack(packSize);
-        pack[0] = PT_ACK;
+        pack[0] = PTYPE_ACK;
         memcpy(&pack[1], &playerId, sizeof(playerId));
         safeSend(sock, pack, packSize, 0);
         free(pack);

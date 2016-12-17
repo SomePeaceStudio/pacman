@@ -11,8 +11,6 @@
 // Shared functions for client and server
 #include "../shared/shared.h"
 
-#define MAXNICKSIZE 20
-
 // ------------------------------------------------------------------------- //
 //                      TODO NEXT
 // 1. convert received map into int** MAP
@@ -29,10 +27,9 @@ int **MAP;
 int mapWidth;
 int mapHeight;
 int playerId;
-char playerName[MAXNICKSIZE+1] = "pacMonster007----END";
+char playerName[MAX_NICK_SIZE+1] = "pacMonster007----END";
 pthread_t  tid;   // Second thread
 //tcb- theard control block.;
-
 
 
 // ========================================================================= //
@@ -149,7 +146,7 @@ int main(int argc, char *argv[]) {
     while(1){
         packtype = receivePacktype(sock);
         // Receive MAP
-        if(packtype = PT_MAP){
+        if(packtype = PTYPE_MAP){
             debug_print("%s\n", "Getting MAP pack...");
 
             packSize = mapHeight*mapWidth;
@@ -216,26 +213,24 @@ int joinGame(int sock){
         fscanf(stdin, "%s", playerName);
     }
 
-
-    packSize = 1 + MAXNICKSIZE;
+    //1 baits paketes tipam
+    packSize = 1 + MAX_NICK_SIZE;
     pack = allocPack(packSize);
-    pack[0] = 0;
-    printf("Size of name: %d\n", (int)sizeof(playerName));
-    memcpy(&pack[1], playerName, MAXNICKSIZE);
+    pack[0] = PTYPE_JOIN;
+    debug_print("Size of name: %d\n", (int)sizeof(playerName));
+    memcpy(&pack[1], playerName, strlen(playerName));
 
     // Send JOIN packet
     debug_print("%s\n", "Sending JOIN packet...");
     safeSend(sock, pack, packSize, 0);
 
     // Receive ACK
-    packSize = 5;
-    pack = allocPack(packSize);
+    pack = allocPack(PSIZE_ACK);
     safeRecv(sock, pack, packSize, 0);
     debug_print("%s\n", "ACK reveived.");
 
-    // ACK packet received
-    if(pack[0] == 1){
-        int id = pack[1]; 
+    if(pack[0] == PTYPE_ACK){
+        int id = pack[1];
         debug_print("Received Id: %d\n", id);
         if(id > 0){
             return (int)pack[1];
@@ -270,7 +265,7 @@ void waitForStart(int sock){
     int packSize = 4;
 
     packtype = receivePacktype(sock);
-    if((int)packtype == PT_START){
+    if((int)packtype == PTYPE_START){
         pack = allocPack(packSize);
         safeRecv(sock, pack, packSize, 0);
         // Set map sizes (globals)

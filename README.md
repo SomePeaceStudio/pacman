@@ -4,7 +4,7 @@
 Code is compiled using gcc compiler by default. To compile client and server, simply run `make` in the project root directory.
 
 The makefile also contains the following rules:
-* all (default)
+* client + server (default)
 * client
 * server
 * clean

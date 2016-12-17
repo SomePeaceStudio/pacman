@@ -17,14 +17,33 @@
 #define debug_print(fmt, ...) \
             do { if (DEBUG) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
 
-//Pakešu tipi, kas definēti protokolā
-#define PT_JOIN 0
-#define PT_ACK 1
-#define PT_START 2
-#define PT_END 3
-#define PT_MAP 4
-#define PT_PLAYERS 5
-#define PT_SCORE 6
+//Pakešu tipi, kas definēti protokolā (PTYPE - Packet Type)
+//Atbilst PacketType enumerācijai
+#define PTYPE_JOIN 0
+#define PTYPE_ACK 1
+#define PTYPE_START 2
+#define PTYPE_END 3
+#define PTYPE_MAP 4
+#define PTYPE_PLAYERS 5
+#define PTYPE_SCORE 6
+#define PTYPE_MOVE 7
+
+//Pakešu izmēri tām paketēm, kurām ir fiksēti izmēri (PSIZE - Packet Size)
+#define PSIZE_JOIN 21 //20 baiti niks + 1 baits tipam
+#define PSIZE_ACK 5 //Tips + spēlētāja id (int)
+#define PSIZE_START 5 //Tips, map.height, map.size, player.x, player.y
+#define PSIZE_END 1
+#define PSIZE_SCORE 13 //Tips, packet.length, score, player.id
+#define PSIZE_MOVE 6 //Tips, player.id, virziens
+
+//Virzieni, kādā spēlētāji var kustēties
+//Atbilst protokola ClientMovement enumerācijai
+#define DIR_UP 0
+#define DIR_DOWN 1
+#define DIR_RIGHT 2
+#define DIR_LEFT 3
+
+#define MAX_NICK_SIZE 20
 
 typedef struct {
     char type;

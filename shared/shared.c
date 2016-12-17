@@ -35,7 +35,6 @@ void safeRecv(int sockfd, void *buf, size_t len, int flags){
 char* allocPack(int size){
     // Init pack with 0 byte
     char* pack = (char*)calloc(1, size);
-    // If did not allocate memory
     if( pack == NULL ){
         Die("Error: Could not allocate memory");
     }
