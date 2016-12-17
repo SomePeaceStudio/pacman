@@ -257,6 +257,9 @@ void HandleClient(int sock) {
 
 
 int main(int argc, char *argv[]) {
+    
+    
+
     int serversock, clientsock;
     struct sockaddr_in echoserver, echoclient;
 
@@ -295,21 +298,17 @@ int main(int argc, char *argv[]) {
     debug_print("Map width: %d, Map height: %d\n", MAPWIDTH, MAPHEIGHT);
 
     MAP = allocateGameMap(MAPWIDTH, MAPHEIGHT);
-    //debug_print("%s\n", "Allocated MAP");
-    //printMap(MAP,MAPWIDTH,MAPHEIGHT);
-    //MAP[6][0] = 2;
-    //debug_print("%s\n", "DONE!");
-    
+
     int type,x,y;
     while(fscanf(mapFile, " %d %d %d ", &type, &x, &y) > 0) {
-        printf("putting x:%d y:%d type:%d\n", x,y,type);
-        // sleep(0.5);
-        // MAP[x][y] = type;
+        MAP[x][y] = type;
     }
     if(fclose(mapFile) != 0){
         printf("%s\n", "Could not close mapFile");
     }
-    //printMap(MAP,MAPWIDTH,MAPHEIGHT);
+
+    printMap(MAP,MAPWIDTH,MAPHEIGHT);
+    
     return 0;
     // --------------------------------------------------------------------- //
 

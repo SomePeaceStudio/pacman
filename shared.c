@@ -59,14 +59,14 @@ char receivePacktype(int sock){
 
 int** allocateGameMap(int width, int height){
     int** map;
-    map = (int**)malloc(sizeof(int)*height);
+    map = (int**)malloc(sizeof(int *) * height);
     // If did not allocate memory
     if( map == NULL ){
         printf("%s\n", "Error: Could not allocate memory");
         exit(1);
     }
     for (int i = 0; i < height; i++){
-        map[i] = malloc(sizeof *map[i] * width);
+        map[i] = malloc(sizeof(*map[i]) * width);
         if( map[i] == NULL ){
             printf("%s\n", "Error: Could not allocate memory");
             exit(1);
@@ -86,22 +86,22 @@ int** allocateGameMap(int width, int height){
 // 5 Score
 
 char* translateType(int type){
-    if (type == '0'){
+    if (type == 0){
         return "~";
     }
-    if (type == '1'){
+    if (type == 1){
         return ANSI_COLOR_YELLOW "." ANSI_COLOR_RESET;
     }
-    if (type == '2'){
+    if (type == 2){
         return "=";
     }
-    if (type == '3'){
+    if (type == 3){
         return ANSI_COLOR_CYAN "*" ANSI_COLOR_RESET;
     }
-    if (type == '4'){
+    if (type == 4){
         return ANSI_COLOR_MAGENTA "#" ANSI_COLOR_RESET;
     }
-    if (type == '5'){
+    if (type == 5){
         return ANSI_COLOR_GREEN "$" ANSI_COLOR_RESET;
     }
     return "E"; // E for Error
