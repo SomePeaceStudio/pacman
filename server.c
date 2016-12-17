@@ -59,7 +59,6 @@ int MAPWIDTH;
 // ========================================================================= //
 
 int getId() { return ID++; }
-void printMappac(char* mappac);
 int deleteObjectNode(objectNode_t **start, objectNode_t *node);
 void updateState(int id,int x,int y);
 void sendStateUpdate(int sock);
@@ -323,17 +322,6 @@ int main(int argc, char *argv[]) {
         fprintf(stdout, "Client connected: %s\n", 
                     inet_ntoa(echoclient.sin_addr));
         HandleClient(clientsock);
-    }
-}
-
-// ========================================================================= //
-
-void printMappac(char* mappac){
-    for (int i = 0; i < MAPHEIGHT*MAPWIDTH; ++i){
-        printf("%3d", *((int*)mappac+i) );
-        if((i+1) % MAPWIDTH == 0){
-            printf("\n");
-        }        
     }
 }
 
