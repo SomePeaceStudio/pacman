@@ -19,21 +19,6 @@
 //
 // ------------------------------------------------------------------------- //
 
-typedef struct {
-    char type;
-    char response;
-    int id;
-} join_t;
-
-typedef struct {
-    char type;
-    int id;
-    double x;
-    double y;
-    int status;
-} object_t;
-
-
 //Unused
 object_t **MAP2;
 int MAPWIDTH;
@@ -164,7 +149,7 @@ int main(int argc, char *argv[]) {
     while(1){
         packtype = receivePacktype(sock);
         // Receive MAP
-        if(packtype = 4){
+        if(packtype = PT_MAP){
             debug_print("%s\n", "Getting MAP pack...");
 
             packSize = mapHeight*mapWidth;
@@ -285,7 +270,7 @@ void waitForStart(int sock){
     int packSize = 4;
 
     packtype = receivePacktype(sock);
-    if((int)packtype == 2){
+    if((int)packtype == PT_START){
         pack = allocPack(packSize);
         safeRecv(sock, pack, packSize, 0);
         // Set map sizes (globals)

@@ -28,7 +28,6 @@ void safeRecv(int sockfd, void *buf, size_t len, int flags){
         Die("Failed to receive bytes from server");
     }
     debug_print("Received: %2d bytes\n", received);
-    
 }
 
 // ========================================================================= //

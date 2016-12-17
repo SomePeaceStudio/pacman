@@ -9,36 +9,15 @@
 // Shared functions for client and server
 #include "../shared/shared.h"
 
-// ========================================================================= //
-// TODO/BUG: 
-// 1. JOIN pack NICKNAME receives just 19 char long name instead of char 20
-//    or it seems so...    - FIXED
-// ========================================================================= //
-
 #define MAXPENDING 5    /* Max connection requests */
 #define MAXNICKSIZE 20
 
 // ------------------------------------------------------------------------- //
 
-typedef struct {
-    char type;
-    int id;
-    double x;
-    double y;
-    int status;
-} object_t;
-
 typedef struct objectNode{
     object_t object;
     struct objectNode *next;
 } objectNode_t;
-
-typedef struct {
-    int id;
-    char* nick;
-    int score;
-} score_t;
-
 
 // ------------------------------------------------------------------------- //
 
@@ -165,7 +144,7 @@ void HandleClient(int sock) {
 
     //------- JOIN / ACK -------//
     pactype = receivePacktype(sock);
-    if((int)pactype == 0){
+    if((int)pactype == PT_JOIN){
         // Get User Nickname
         safeRecv(sock, &playerName, MAXNICKSIZE,0);
         playerName[MAXNICKSIZE] = '\0';
@@ -177,7 +156,7 @@ void HandleClient(int sock) {
         playerId = getId();
         packSize = 5;
         pack = allocPack(packSize);
-        pack[0] = 1;
+        pack[0] = PT_ACK;
         memcpy(&pack[1], &playerId, sizeof(playerId));
         safeSend(sock, pack, packSize, 0);
         free(pack);
@@ -248,9 +227,6 @@ void HandleClient(int sock) {
 
 
 int main(int argc, char *argv[]) {
-    
-    
-
     int serversock, clientsock;
     struct sockaddr_in echoserver, echoclient;
 

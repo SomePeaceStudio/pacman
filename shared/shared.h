@@ -17,6 +17,23 @@
 #define debug_print(fmt, ...) \
             do { if (DEBUG) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
 
+//Pakešu tipi, kas definēti protokolā
+#define PT_JOIN 0
+#define PT_ACK 1
+#define PT_START 2
+#define PT_END 3
+#define PT_MAP 4
+#define PT_PLAYERS 5
+#define PT_SCORE 6
+
+typedef struct {
+    char type;
+    int id;
+    double x;
+    double y;
+    int status;
+} object_t;
+
 void Die(char *mess);
 void safeSend(int sockfd, const void *buf, size_t len, int flags);
 void safeRecv(int sockfd, void *buf, size_t len, int flags);
