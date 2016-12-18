@@ -62,7 +62,6 @@ char** allocateGameMap(int width, int height);
 char* translateType(int type);
 // For debugging on server/client
 void printMap(char** map, int width, int height);
-char* makeMapPack(int** map, int width, int height);
 void printMappacPretty(char* mappac, int width, int height);
 void printMappac(char* mappac, int width, int height);
 

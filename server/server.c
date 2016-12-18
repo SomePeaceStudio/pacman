@@ -278,22 +278,6 @@ int main(int argc, char *argv[]) {
 
     printMap(MAP,MAPWIDTH,MAPHEIGHT);
 
-
-    //DEBUG
-    // int packSize;
-    // char* pack;
-
-    // packSize = 1 + MAPWIDTH * MAPHEIGHT;
-    // // pack = makeMapPack(MAP, MAPWIDTH, MAPHEIGHT);
-
-    // pack = allocPack(packSize);
-    // pack[0] = 4;
-    // memcpy(&pack[1], *MAP, MAPWIDTH * MAPHEIGHT);
-
-
-    // printMappacPretty(&pack[1], MAPWIDTH, MAPHEIGHT);
-    // return 0;
-    // END DEBUG
     // --------------------------------------------------------------------- //
 
     /* Listen on the server socket */

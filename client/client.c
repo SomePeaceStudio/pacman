@@ -11,12 +11,6 @@
 // Shared functions for client and server
 #include "../shared/shared.h"
 
-// ------------------------------------------------------------------------- //
-//                      TODO NEXT
-// 1. convert received map into int** MAP
-//
-// ------------------------------------------------------------------------- //
-
 //Unused
 object_t **MAP2;
 int MAPWIDTH;
@@ -40,17 +34,17 @@ void waitForStart(int sock);
 void updateMap();
 
 // TO BE REDONE
-// int** allocateGameMap(int width, int height);
 // object_t** allocateGameMap2(int width, int height);
-// void printMappac();
-// void convertMappacToArray(char* mappac);
-// void convertMappacToArray2(char* mappac);
-
 // void initializeMap();
-// char* translateType(int type);
+
 void* actionTherad();   /* Thread function to client actions */
 
 // ========================================================================= //
+
+void printObj(object_t obj){
+    printf("ID: %1d Type: %c X: %2f Y: %2f ST: %d\n",\
+        obj.id, obj.type, obj.x, obj.y, obj.status);
+}
 
 void* actionTherad(void *parm){
     sleep(3);
@@ -89,10 +83,6 @@ void* actionTherad(void *parm){
     }
 };
 
-void printObj(object_t obj){
-    printf("ID: %1d Type: %c X: %2f Y: %2f ST: %d\n",\
-        obj.id, obj.type, obj.x, obj.y, obj.status);
-}
 
 int main(int argc, char *argv[]) {
     int sock;
@@ -291,46 +281,6 @@ object_t** allocateGameMap2(int width, int height){
         }
     }
     return map;
-}
-
-// ========================================================================= //
-
-void convertMappacToArray(char* mappac){
-    MAP = allocateGameMap(MAPWIDTH, MAPHEIGHT);
-
-    int row = 0;
-    int col = 0;
-    for (int i = 0; i < MAPHEIGHT*MAPWIDTH; ++i){
-        // printf("%d\n", *((int*)mappac+i));
-        // printf("row = %d, i = %d\n", row, i);
-        MAP[row][col] = *((int*)mappac+i);
-        col++;
-        if((i+1) % MAPWIDTH == 0){
-            row += 1;
-            col = 0;
-        }        
-    }
-    // printf("\n");
-}
-
-// ========================================================================= //
-
-void convertMappacToArray2(char* mappac){
-    MAP2 = allocateGameMap2(MAPWIDTH, MAPHEIGHT);
-
-    int row = 0;
-    int col = 0;
-    for (int i = 0; i < MAPHEIGHT*MAPWIDTH; ++i){
-        // printf("%d\n", *((int*)mappac+i));
-        // printf("row = %d, i = %d\n", row, i);
-        MAP[row][col] = *((int*)mappac+i);
-        col++;
-        if((i+1) % MAPWIDTH == 0){
-            row += 1;
-            col = 0;
-        }        
-    }
-    // printf("\n");
 }
 
 // ========================================================================= //
