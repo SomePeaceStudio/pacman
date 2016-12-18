@@ -43,7 +43,7 @@ void* actionTherad();   /* Thread function to client actions */
 
 void printObj(object_t obj){
     printf("ID: %1d Type: %c X: %2f Y: %2f ST: %d\n",\
-        obj.id, obj.type, obj.x, obj.y, obj.status);
+        obj.id, obj.type, obj.x, obj.y, obj.state);
 }
 
 void* actionTherad(void *parm){
@@ -117,6 +117,8 @@ int main(int argc, char *argv[]) {
     
     playerId = joinGame(sock);
     waitForStart(sock);
+
+
        
     //Receive stuff from a server
     //pthread_create(&tid, NULL, actionTherad, (void*)(intptr_t) sock);   
@@ -293,7 +295,7 @@ void initializeMap(){
             MAP2[i][j].id = -1;
             MAP2[i][j].x = j;
             MAP2[i][j].y = i;
-            MAP2[i][j].status = 0;
+            MAP2[i][j].state = 0;
         }
         printf("\n");
     }
@@ -333,9 +335,16 @@ void updateMap(object_t update){
         MAP2[x][y].id = update.id;
         MAP2[x][y].x = update.x;
         MAP2[x][y].y = update.y;
-        MAP2[x][y].status = update.status;
+        MAP2[x][y].state = update.state;
         
         debug_print("%s\n", "After Update: ");
         printObj(MAP2[x][y]);
     }
+}
+
+// ========================================================================= //
+
+// Paņem karti un virsū uzzīmē spēlētājus
+void renderMap(){
+
 }

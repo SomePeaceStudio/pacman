@@ -36,6 +36,9 @@
 #define PSIZE_SCORE 13  // Tips, packet.length, score, player.id
 #define PSIZE_MOVE 6    // Tips, player.id, virziens
 
+// Fiksēts spēlētāja objekta izmērs priekš PLAYERS tipa paketes
+#define OSIZE_PLAYER 14 // id(int), x(float), y(float), PlayerState, PlayerType
+
 // Virzieni, kādā spēlētāji var kustēties
 // Atbilst protokola ClientMovement enumerācijai
 #define DIR_UP 0
@@ -71,7 +74,7 @@ typedef struct {
     int points;     // Spēlētāja punkti (pacman) / kills (ghost) 
     double x;
     double y;
-    int status;     // PLSTATE_
+    int state;     // PLSTATE_
 } object_t;
 
 void Die(char *mess);

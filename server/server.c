@@ -42,6 +42,7 @@ void sendStateUpdate(int sock);
 void sendMapUpdate(int sock);
 void initNewPlayer(int id, int type, char *name);
 void setSpawnPoint(double *x, double *y);
+void sendPlayersState(int sock);
 
 
 // ========================================================================= //
@@ -133,7 +134,7 @@ void printObjectNodeList(objectNode_t *start){
     for(objectNode_t *current = start; current != 0; current = current->next){
         printf("ID: %1d Type: %c X: %2f Y: %2f ST: %d\n",\
            current->object.id, current->object.type, current->object.x, \
-           current->object.y, current->object.status);
+           current->object.y, current->object.state);
     }
     printf("Total count: %d\n", stateObjCount);
 }
@@ -191,16 +192,17 @@ void HandleClient(int sock) {
     pack[0] = 2;
     pack[1] = MAPHEIGHT;
     pack[2] = MAPWIDTH;
-
-    //TODO: Calculate Where to spawn user;
-    pack[3] = 0;
-    pack[4] = 0;
+    pack[3] = getObject(STATE, playerId)->x;
+    pack[4] = getObject(STATE, playerId)->y;
     safeSend(sock, pack, PSIZE_START, 0);
     free(pack);
 
 
     // Send Map Update 
     sendMapUpdate(sock);
+
+    // Send Players
+    sendPlayersState(sock);
 
 
     return;
@@ -399,26 +401,31 @@ void updateState(int id,int x,int y){
 
 // ========================================================================= //
 
-//UNUSED 
-void sendStateUpdate(int sock){
-    int newStateSize = (int)(sizeof(char)+sizeof(int)+sizeof(object_t)*stateObjCount);
-    char* newState = (char*)calloc(1,newStateSize);
-    newState[0] = 'U';
-    newState[1] = stateObjCount;
-    int i = 5;
+void sendPlayersState(int sock){
+    int packSize;
+    char* pack;
+
+    packSize = 1 + stateObjCount*OSIZE_PLAYER;
+    pack = allocPack(packSize);
+    pack[0] = PTYPE_PLAYERS;
+    *(int*)(pack+1) = stateObjCount;
+
+    char* currObj = &pack[5]; // Norāda uz sākumvietu, kur rakstīt objektu
     for(objectNode_t *current = STATE; current != 0; current = current->next){
-        memcpy(&newState[i],&(current->object), sizeof(object_t));
-        i += sizeof(object_t);
+        *(int*)currObj  = current->object.id;
+        *(float*)(currObj+4) = current->object.x;
+        *(float*)(currObj+8) = current->object.y;
+        *(currObj+12) = current->object.state;
+        *(currObj+13) = current->object.type;
+        currObj += 15;
     }
-    debug_print("%s\n", "Sending State Update...");
-    debug_print("Size: %d PACKET: %c%d ...\n",newStateSize, newState[0], newState[1]);
-    if (send(sock, newState, newStateSize, 0) != newStateSize) {
-            debug_print("%s\n", "Could not send all packets!!");
-            //Die("Failed to send bytes to client");
+
+    // Send MAP packet
+    debug_print("%s\n", "Sending PLAYERS packet...");
+    safeSend(sock, pack, packSize, 0);
+    if(pack != 0){
+        free(pack);
     }
-    free(newState);
-    newState = 0;
-    printf("%s\n", "Sent State to the client!");
 }
 
 // ========================================================================= //
@@ -436,6 +443,9 @@ void sendMapUpdate(int sock){
     // Send MAP packet
     debug_print("%s\n", "Sending MAP packet...");
     safeSend(sock, pack, packSize, 0);
+    if(pack!=0){
+        free(pack);
+    }
 }
 
 // ========================================================================= //
@@ -467,4 +477,5 @@ void initNewPlayer(int id, int type, char *name){
     addObjectNodeEnd(&STATE, createObjectNode(&newPlayer));
 };
 
+// ========================================================================= //
 
