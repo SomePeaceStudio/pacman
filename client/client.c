@@ -89,18 +89,6 @@ void* actionTherad(void *parm){
     }
 };
 
-void printAncii(){
-    int i;
-    i=0;
-    do
-    {
-        printf("%d %c \n",i,i);
-        i++;
-    }
-    while(i<=255);
-    return;
-}
-
 void printObj(object_t obj){
     printf("ID: %1d Type: %c X: %2f Y: %2f ST: %d\n",\
         obj.id, obj.type, obj.x, obj.y, obj.status);
@@ -204,8 +192,8 @@ int main(int argc, char *argv[]) {
 // return -1 if error
 int joinGame(int sock){
 
-    int packSize;
     char* pack;
+    int id;
 
     debug_print("%s\n", "Getting player name...");
     // Ask for player name if not predefined 
@@ -213,24 +201,25 @@ int joinGame(int sock){
         fscanf(stdin, "%s", playerName);
     }
 
-    //1 baits paketes tipam
-    packSize = 1 + MAX_NICK_SIZE;
-    pack = allocPack(packSize);
+    // 1 baits paketes tipam
+    pack = allocPack(PSIZE_JOIN);
     pack[0] = PTYPE_JOIN;
     debug_print("Size of name: %d\n", (int)sizeof(playerName));
     memcpy(&pack[1], playerName, strlen(playerName));
 
     // Send JOIN packet
     debug_print("%s\n", "Sending JOIN packet...");
-    safeSend(sock, pack, packSize, 0);
+    safeSend(sock, pack, PSIZE_JOIN, 0);
+    free(pack);
 
     // Receive ACK
     pack = allocPack(PSIZE_ACK);
-    safeRecv(sock, pack, packSize, 0);
+    safeRecv(sock, pack, PSIZE_ACK, 0);
     debug_print("%s\n", "ACK reveived.");
 
     if(pack[0] == PTYPE_ACK){
-        int id = pack[1];
+        int id = (int)pack[1];
+        free(pack);
         debug_print("Received Id: %d\n", id);
         if(id > 0){
             return (int)pack[1];
@@ -253,6 +242,7 @@ int joinGame(int sock){
         }
     }else{
         //TODO: Do something.
+        free(pack);
         return -1;
     }
 }
@@ -262,12 +252,11 @@ int joinGame(int sock){
 void waitForStart(int sock){
     char packtype;
     char *pack;
-    int packSize = 4;
 
     packtype = receivePacktype(sock);
     if((int)packtype == PTYPE_START){
-        pack = allocPack(packSize);
-        safeRecv(sock, pack, packSize, 0);
+        pack = allocPack(PSIZE_START-1);
+        safeRecv(sock, pack, PSIZE_START-1, 0);
         // Set map sizes (globals)
         mapHeight = (int)pack[0];
         mapWidth = (int)pack[1];

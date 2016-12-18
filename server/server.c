@@ -33,7 +33,12 @@ int MAPWIDTH;
 // ========================================================================= //
 
 int getId() { return ID++; }
+void addObjectNode(objectNode_t **start, objectNode_t *newNode);
+void addObjectNodeEnd(objectNode_t **start, objectNode_t *newNode);
+objectNode_t *createObjectNode(object_t* gameObj);
+void deleteObjectWithId(objectNode_t **start, int id);
 int deleteObjectNode(objectNode_t **start, objectNode_t *node);
+void printObjectNodeList(objectNode_t *start);
 void updateState(int id,int x,int y);
 void sendStateUpdate(int sock);
 void sendMapUpdate(int sock);
@@ -153,11 +158,10 @@ void HandleClient(int sock) {
         // Send ACK
         debug_print("%s\n", "Sending ACK for JOIN");
         playerId = getId();
-        packSize = 5;
-        pack = allocPack(packSize);
+        pack = allocPack(PSIZE_ACK);
         pack[0] = PTYPE_ACK;
         memcpy(&pack[1], &playerId, sizeof(playerId));
-        safeSend(sock, pack, packSize, 0);
+        safeSend(sock, pack, PSIZE_ACK, 0);
         free(pack);
     }else{
         //TODO: do something;
@@ -165,15 +169,14 @@ void HandleClient(int sock) {
 
     //------- START -------//
     debug_print("%s\n", "Sending START packet...");
-    packSize = 5;
-    pack = allocPack(packSize);
+    pack = allocPack(PSIZE_START);
     pack[0] = 2;
     pack[1] = MAPHEIGHT;
     pack[2] = MAPWIDTH;
     //TODO: Calculate Where to spawn user;
     pack[3] = 0;
     pack[4] = 0;
-    safeSend(sock, pack, packSize, 0);
+    safeSend(sock, pack, PSIZE_START, 0);
     free(pack);
 
     // Send Map Update 
