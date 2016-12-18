@@ -52,21 +52,21 @@ char receivePacktype(int sock){
 
 // ========================================================================= //
 
-int** allocateGameMap(int width, int height){
-    int** map;
-    map = (int**)malloc(sizeof(int *) * height);
-    // If did not allocate memory
+char** allocateGameMap(int width, int height){
+    char *data = (char *)malloc( width * height );
+    if( data == NULL ){
+        printf("%s\n", "Error: Could not allocate memory");
+        exit(1);
+    }
+
+    char **map = (char **)malloc( height * sizeof(char*) );
     if( map == NULL ){
         printf("%s\n", "Error: Could not allocate memory");
         exit(1);
     }
-    for (int i = 0; i < height; i++){
-        map[i] = malloc(sizeof(*map[i]) * width);
-        if( map[i] == NULL ){
-            printf("%s\n", "Error: Could not allocate memory");
-            exit(1);
-        }
-    }
+    for (int i = 0; i < height; i++)
+        map[i] = &(data[width*i]);
+
     return map;
 }
 
@@ -105,7 +105,7 @@ char* translateType(int type){
 // ========================================================================= //
 
 // For debugging on server/client
-void printMap(int** map, int width, int height){
+void printMap(char** map, int width, int height){
     for (int i = 0; i < height; ++i){
         for (int j = 0; j < width; ++j){
            printf(" %s", translateType(map[i][j]));

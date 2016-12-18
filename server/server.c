@@ -25,7 +25,7 @@ int ID = 0;
 // object_t STATE[MAPWIDTH][3] = {{{},{},{}},{{},{},{}},{{},{},{}}};
 objectNode_t *STATE;
 
-int** MAP;
+char** MAP;
 int stateObjCount = 0;
 int MAPHEIGHT;
 int MAPWIDTH;
@@ -277,7 +277,23 @@ int main(int argc, char *argv[]) {
     }
 
     printMap(MAP,MAPWIDTH,MAPHEIGHT);
-    
+
+
+    //DEBUG
+    // int packSize;
+    // char* pack;
+
+    // packSize = 1 + MAPWIDTH * MAPHEIGHT;
+    // // pack = makeMapPack(MAP, MAPWIDTH, MAPHEIGHT);
+
+    // pack = allocPack(packSize);
+    // pack[0] = 4;
+    // memcpy(&pack[1], *MAP, MAPWIDTH * MAPHEIGHT);
+
+
+    // printMappacPretty(&pack[1], MAPWIDTH, MAPHEIGHT);
+    // return 0;
+    // END DEBUG
     // --------------------------------------------------------------------- //
 
     /* Listen on the server socket */
@@ -407,11 +423,11 @@ void sendMapUpdate(int sock){
     char* pack;
 
     packSize = 1 + MAPWIDTH * MAPHEIGHT;
-    pack = makeMapPack(MAP, MAPWIDTH, MAPHEIGHT);
-    // pack = allocPack(packSize);
-    // pack[0] = 4;
-    // memcpy(&pack[1], *MAP, MAPWIDTH * MAPHEIGHT);
+    pack = allocPack(packSize);
+    pack[0] = PTYPE_MAP;
+    memcpy(&pack[1], *MAP, MAPWIDTH * MAPHEIGHT);
 
+    printMappacPretty(&pack[1], MAPWIDTH, MAPHEIGHT);
     // Send MAP packet
     debug_print("%s\n", "Sending MAP packet...");
     safeSend(sock, pack, packSize, 0);

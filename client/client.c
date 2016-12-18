@@ -23,7 +23,7 @@ int MAPWIDTH;
 int MAPHEIGHT;
 
 // Globals
-int **MAP;
+char **MAP;
 int mapWidth;
 int mapHeight;
 int playerId;
@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
       Die("Failed to connect with server");
     }
     
-    joinGame(sock);
+    playerId = joinGame(sock);
     waitForStart(sock);
        
     //Receive stuff from a server
@@ -138,11 +138,8 @@ int main(int argc, char *argv[]) {
             debug_print("%s\n", "Getting MAP pack...");
 
             packSize = mapHeight*mapWidth;
-            pack = allocPack(packSize);
-
-            safeRecv(sock, pack, packSize, 0);
-            printMappacPretty(pack, mapWidth, mapHeight);
-            free(pack);
+            safeRecv(sock, *MAP, packSize, 0);
+            printMap(MAP, mapWidth, mapHeight);
         }
 
         return 0;

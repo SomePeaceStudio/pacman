@@ -58,10 +58,10 @@ void safeSend(int sockfd, const void *buf, size_t len, int flags);
 void safeRecv(int sockfd, void *buf, size_t len, int flags);
 char* allocPack(int size);
 char receivePacktype(int sock);
-int** allocateGameMap(int width, int height);
+char** allocateGameMap(int width, int height);
 char* translateType(int type);
 // For debugging on server/client
-void printMap(int** map, int width, int height);
+void printMap(char** map, int width, int height);
 char* makeMapPack(int** map, int width, int height);
 void printMappacPretty(char* mappac, int width, int height);
 void printMappac(char* mappac, int width, int height);
