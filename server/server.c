@@ -21,8 +21,6 @@ typedef struct objectNode{
 // ------------------------------------------------------------------------- //
 
 int ID = 0;
-// int MAP[MAPWIDTH][MAPHEIGHT] = {{0,0,0},{0,1,0},{0,0,0}};
-// object_t STATE[MAPWIDTH][3] = {{{},{},{}},{{},{},{}},{{},{},{}}};
 objectNode_t *STATE;
 
 char** MAP;
@@ -42,6 +40,9 @@ void printObjectNodeList(objectNode_t *start);
 void updateState(int id,int x,int y);
 void sendStateUpdate(int sock);
 void sendMapUpdate(int sock);
+void initNewPlayer(int id, int type, char *name);
+void setSpawnPoint(double *x, double *y);
+
 
 // ========================================================================= //
 
@@ -137,6 +138,16 @@ void printObjectNodeList(objectNode_t *start){
     printf("Total count: %d\n", stateObjCount);
 }
 
+// ------------------------------------------------------------------------- //
+
+object_t* getObject(objectNode_t *start, int id){
+    for(objectNode_t *current = start; current != 0; current = current->next){
+        if(current->object.id == id){
+            return &(current->object);
+        }
+    }
+}
+
 // ========================================================================= //
 
 void HandleClient(int sock) {
@@ -146,6 +157,7 @@ void HandleClient(int sock) {
     int playerId;
     char playerName[MAX_NICK_SIZE+1];
 
+
     //------- JOIN / ACK -------//
     pactype = receivePacktype(sock);
     if((int)pactype == PTYPE_JOIN){
@@ -153,19 +165,25 @@ void HandleClient(int sock) {
         safeRecv(sock, &playerName, MAX_NICK_SIZE,0);
         playerName[MAX_NICK_SIZE] = '\0';
         debug_print("Received playerName: %s\n", playerName);
-        //TODO: Add player name in player name list
+
+
+        //TODO: Dinamiski izvēlēties PLTYPE
+        playerId = getId();
+        initNewPlayer(playerId, PLTYPE_PACMAN, playerName);
 
         // Send ACK
         debug_print("%s\n", "Sending ACK for JOIN");
-        playerId = getId();
         pack = allocPack(PSIZE_ACK);
         pack[0] = PTYPE_ACK;
         memcpy(&pack[1], &playerId, sizeof(playerId));
         safeSend(sock, pack, PSIZE_ACK, 0);
         free(pack);
+
+
     }else{
         //TODO: do something;
     }
+
 
     //------- START -------//
     debug_print("%s\n", "Sending START packet...");
@@ -173,14 +191,17 @@ void HandleClient(int sock) {
     pack[0] = 2;
     pack[1] = MAPHEIGHT;
     pack[2] = MAPWIDTH;
+
     //TODO: Calculate Where to spawn user;
     pack[3] = 0;
     pack[4] = 0;
     safeSend(sock, pack, PSIZE_START, 0);
     free(pack);
 
+
     // Send Map Update 
     sendMapUpdate(sock);
+
 
     return;
 
@@ -418,4 +439,32 @@ void sendMapUpdate(int sock){
 }
 
 // ========================================================================= //
+
+void setSpawnPoint(double *x, double *y){
+    for (int i = 0; i < MAPHEIGHT; ++i){
+        for (int j = 0; j < MAPWIDTH; ++j){
+            if(MAP[i][j] == MTYPE_EMPTY){
+                *x = i; *y = j;
+                return;
+            }
+        }
+    }
+    debug_print("%s\n", "Could not find any free spawn place.");
+}
+
+// ========================================================================= //
+
+void initNewPlayer(int id, int type, char *name){
+    // Inicializē objektu
+    object_t newPlayer;
+    newPlayer.type = type;
+    newPlayer.id = id;
+    strcpy(newPlayer.name, name);
+    newPlayer.points = 0;
+    setSpawnPoint(&newPlayer.x, &newPlayer.y);
+    int status = PLSTATE_LIVE;
+    // Pievieno sarakstam
+    addObjectNodeEnd(&STATE, createObjectNode(&newPlayer));
+};
+
 

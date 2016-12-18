@@ -17,8 +17,8 @@
 #define debug_print(fmt, ...) \
             do { if (DEBUG) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
 
-//Pakešu tipi, kas definēti protokolā (PTYPE - Packet Type)
-//Atbilst PacketType enumerācijai
+// Pakešu tipi, kas definēti protokolā (PTYPE - Packet Type)
+// Atbilst PacketType enumerācijai
 #define PTYPE_JOIN 0
 #define PTYPE_ACK 1
 #define PTYPE_START 2
@@ -28,16 +28,16 @@
 #define PTYPE_SCORE 6
 #define PTYPE_MOVE 7
 
-//Pakešu izmēri tām paketēm, kurām ir fiksēti izmēri (PSIZE - Packet Size)
-#define PSIZE_JOIN 21 //20 baiti niks + 1 baits tipam
-#define PSIZE_ACK 5 //Tips + spēlētāja id (int)
-#define PSIZE_START 5 //Tips, map.height, map.size, player.x, player.y
+// Pakešu izmēri tām paketēm, kurām ir fiksēti izmēri (PSIZE - Packet Size)
+#define PSIZE_JOIN 21   // 20 baiti niks + 1 baits tipam
+#define PSIZE_ACK 5     // Tips + spēlētāja id (int)
+#define PSIZE_START 5   // Tips, map.height, map.size, player.x, player.y
 #define PSIZE_END 1
-#define PSIZE_SCORE 13 //Tips, packet.length, score, player.id
-#define PSIZE_MOVE 6 //Tips, player.id, virziens
+#define PSIZE_SCORE 13  // Tips, packet.length, score, player.id
+#define PSIZE_MOVE 6    // Tips, player.id, virziens
 
-//Virzieni, kādā spēlētāji var kustēties
-//Atbilst protokola ClientMovement enumerācijai
+// Virzieni, kādā spēlētāji var kustēties
+// Atbilst protokola ClientMovement enumerācijai
 #define DIR_UP 0
 #define DIR_DOWN 1
 #define DIR_RIGHT 2
@@ -45,12 +45,33 @@
 
 #define MAX_NICK_SIZE 20
 
+// Spēlētāja stāvoklis
+#define PLSTATE_LIVE 0
+#define PLSTATE_DEAD 1
+#define PLSTATE_POWERUP 2
+
+// Spēlētāja tips
+#define PLTYPE_PACMAN 0
+#define PLTYPE_GHOST 1
+
+// Kartes objektu tipi
+
+#define MTYPE_EMPTY 0
+#define MTYPE_DOT   1
+#define MTYPE_WALL  2
+#define MTYPE_POWER 3
+#define MTYPE_INVINCIBILITY 4
+#define MTYPE_SCORE 5
+
+
 typedef struct {
-    char type;
-    int id;
+    char type;      // PLTYPE_ pacman vai ghost
+    int id;         // Spēlētāja id
+    char name[21];  // Spēlētāja vārds
+    int points;     // Spēlētāja punkti (pacman) / kills (ghost) 
     double x;
     double y;
-    int status;
+    int status;     // PLSTATE_
 } object_t;
 
 void Die(char *mess);
