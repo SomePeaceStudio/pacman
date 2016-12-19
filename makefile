@@ -3,7 +3,8 @@ CC=gcc
 
 #Opcijas, ko padot kompilatoram.
 #-fshort-enums: lai enum vērtības aizņemtu pēc iespējas mazāk baitu.
-CFLAGS=-pthread -fshort-enums
+#-lm: lai varētu izmantot math.h	
+CFLAGS=-pthread -fshort-enums -lm
 
 #Izpildāmo failu nosaukumi
 BIN_CLIENT=bin/client

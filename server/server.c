@@ -20,7 +20,7 @@ typedef struct objectNode{
 
 // ------------------------------------------------------------------------- //
 
-int ID = 0;
+int ID = 1;
 objectNode_t *STATE;
 
 char** MAP;
@@ -131,12 +131,15 @@ int deleteObjectNode(objectNode_t **start, objectNode_t *node){
 // ------------------------------------------------------------------------- //
 
 void printObjectNodeList(objectNode_t *start){
+    printf("%s\n", "===========PLAYERS===========");
     for(objectNode_t *current = start; current != 0; current = current->next){
-        printf("ID: %1d Type: %c X: %2f Y: %2f ST: %d\n",\
+        printf("ID: %1d Type: %d X: %2f Y: %2f ST: %d\nName: %s Points: %d\n\n",\
            current->object.id, current->object.type, current->object.x, \
-           current->object.y, current->object.state);
+           current->object.y, current->object.state, current->object.name, \
+           current->object.points);
     }
     printf("Total count: %d\n", stateObjCount);
+    printf("%s\n", "=============================");
 }
 
 // ------------------------------------------------------------------------- //
@@ -198,12 +201,16 @@ void HandleClient(int sock) {
     free(pack);
 
 
-    // Send Map Update 
-    sendMapUpdate(sock);
+    
 
-    // Send Players
-    sendPlayersState(sock);
+    while(1){
+        // Send Map Update 
+        sendMapUpdate(sock);
 
+        // Send Players
+        sendPlayersState(sock);
+        sleep(5);
+    }
 
     return;
 
@@ -405,9 +412,10 @@ void sendPlayersState(int sock){
     int packSize;
     char* pack;
 
-    packSize = 1 + stateObjCount*OSIZE_PLAYER;
+    packSize = 1 + 4 + stateObjCount*OSIZE_PLAYER;
     pack = allocPack(packSize);
     pack[0] = PTYPE_PLAYERS;
+    // pack[1] = stateObjCount;
     *(int*)(pack+1) = stateObjCount;
 
     char* currObj = &pack[5]; // Norāda uz sākumvietu, kur rakstīt objektu
@@ -417,11 +425,12 @@ void sendPlayersState(int sock){
         *(float*)(currObj+8) = current->object.y;
         *(currObj+12) = current->object.state;
         *(currObj+13) = current->object.type;
-        currObj += 15;
+        currObj += 14;
     }
 
     // Send MAP packet
-    debug_print("%s\n", "Sending PLAYERS packet...");
+    debug_print("Sending %d PLAYERS... packSize: %d\n", *(int*)(pack+1), packSize);
+    printObjectNodeList(STATE);
     safeSend(sock, pack, packSize, 0);
     if(pack != 0){
         free(pack);

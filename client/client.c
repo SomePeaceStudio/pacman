@@ -47,12 +47,10 @@ void printObj(object_t obj){
 }
 
 void* actionTherad(void *parm){
-    sleep(3);
     int sock = (int)(intptr_t)parm;
+    printf("%s\n", "a: <- left, w: up, d: -> right, s: down");
     while(1){
-        printf("%s\n", "a: <- left, w: up, d: -> right, s: down");
         char* move;
-
         fscanf(stdin,"%s", move);
         // Get vector
         int vector[2] = {0,0};
@@ -118,7 +116,6 @@ int main(int argc, char *argv[]) {
     playerId = joinGame(sock);
     waitForStart(sock);
 
-
        
     //Receive stuff from a server
     //pthread_create(&tid, NULL, actionTherad, (void*)(intptr_t) sock);   
@@ -126,48 +123,59 @@ int main(int argc, char *argv[]) {
     while(1){
         packtype = receivePacktype(sock);
         // Receive MAP
-        if(packtype = PTYPE_MAP){
+        if( (int)packtype == PTYPE_MAP ){
             debug_print("%s\n", "Getting MAP pack...");
 
             packSize = mapHeight*mapWidth;
             safeRecv(sock, *MAP, packSize, 0);
             printMap(MAP, mapWidth, mapHeight);
         }
+        // Saņem PLAYERS paketi
+        if( (int)packtype == PTYPE_PLAYERS ){
+            // Kartes renderēšana
+            float x,y;
+            char** mapBuffer = allocateGameMap(mapWidth,mapHeight);
+            memcpy(*mapBuffer,*MAP,mapWidth*mapHeight);
 
-        return 0;
-        // Update map
-        // if(pactype == 'U'){
-        //     /* Receive the map size from the server */
-        //     int received = 1; 
-        //     debug_print("%s\n", "Receiving pac size...");
-        //     int updateSize;
-        //     if (recv(sock, &updateSize, sizeof(updateSize), 0) < 1) {
-        //         Die("Failed to receive updateSize from server");
-        //     }
-        //     debug_print("Received map object count: %2d\n", updateSize);
-        //     received += sizeof(updateSize);
-        //     for(int i = 0; i < updateSize; ++i){
-        //         object_t objectBuffer;
-        //         debug_print("Receiving %d. obj.\n", i+1);
-        //         if (recv(sock, &objectBuffer, sizeof(object_t), 0) < 1) {
-        //             Die("Failed to receive updateSize from server");
-        //         }
-        //         printObj(objectBuffer);
-        //         updateMap(objectBuffer);
-        //         debug_print("%s\n", "Updated Map:");
-        //         //printMap();
-        //         received += sizeof(object_t);
-        //         debug_print("Received %d bytes.\n", received);
-        //     }
-        //     //printMap(MAP, MAPWIDTH, MAPHEIGHT);
-        //     continue;
-        // }
+            debug_print("%s\n", "Getting PLAYERS pack...");
+            // Saņem spēlētāju daudzumu
+            int playerCount;
+            safeRecv(sock, &playerCount, sizeof(playerCount), 0);
+            debug_print("Receiving %d players...\n", playerCount);
 
-        
-        // Connection has been lost
-        // if(pactype == '0'){
-        //     break;
-        // }   
+            char playerObjBuffer[OSIZE_PLAYER];
+            for (int i = 0; i < playerCount; ++i){
+                memset(&playerObjBuffer,0,sizeof(playerObjBuffer));
+                safeRecv(sock, &playerObjBuffer, OSIZE_PLAYER, 0);
+
+                // Spēlētāja kordinātes
+                x = *(float*)(playerObjBuffer+4);
+                y = *(float*)(playerObjBuffer+8);
+                // y = (float)playerObjBuffer[8];
+
+                // Priekš pagaidu renderēšanas
+                // BUG: mēģinot izmanto floor dabonu:
+                // undefined reference to `floorf', lai gan iekļāvu
+                // -lm kompilatora karodziņu.
+                // int xfloor, yfloor;
+                // xfloor = (int)floorf(x);
+                // yfloor = (int)floorf(y);
+
+                // Spēlētāju tipi pārklājas ar mapes objektu tipiem,
+                // piešķiru vēl neizmantotas tipu vērtības
+                debug_print("Setting %d type Player at x: %d y: %d\n",(int)*(playerObjBuffer+13), (int)x, (int)y);
+                if((int)*(playerObjBuffer+13) == PLTYPE_PACMAN){
+                    mapBuffer[(int)x][(int)y] = -1;
+                }
+                if((int)*(playerObjBuffer+13) == PLTYPE_GHOST){
+                    mapBuffer[(int)x][(int)y] = -2;
+                }
+                debug_print("Received player with id: %d\n", *(int*)playerObjBuffer);
+            }
+            printMap(mapBuffer, mapWidth, mapHeight);
+            free(mapBuffer); // TODO: Pārbaudīt vai visa atmiņa tiek atbrīvota
+        }
+   
     }
 
     fprintf(stdout, "\n");
@@ -256,7 +264,7 @@ void waitForStart(int sock){
         // For now I have no idea where to
         // put them ...
     }else{
-        //TODO: Do something
+        // TODO: Do something
     }
 
     // Free memory
@@ -343,8 +351,3 @@ void updateMap(object_t update){
 }
 
 // ========================================================================= //
-
-// Paņem karti un virsū uzzīmē spēlētājus
-void renderMap(){
-
-}

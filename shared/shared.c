@@ -81,6 +81,12 @@ char** allocateGameMap(int width, int height){
 // 5 Score
 
 char* translateType(int type){
+    if (type == -2){
+        return ANSI_COLOR_BLUE "G" ANSI_COLOR_RESET;
+    }
+    if (type == -1){
+        return ANSI_COLOR_RED "P" ANSI_COLOR_RESET;
+    }
     if (type == 0){
         return "~";
     }
