@@ -37,7 +37,7 @@ void updateMap();
 // object_t** allocateGameMap2(int width, int height);
 // void initializeMap();
 
-void* actionTherad();   /* Thread function to client actions */
+void* actionTherad(void *parm);   /* Thread function to client actions */
 
 // ========================================================================= //
 
@@ -49,35 +49,33 @@ void printObj(object_t obj){
 void* actionTherad(void *parm){
     int sock = (int)(intptr_t)parm;
     printf("%s\n", "a: <- left, w: up, d: -> right, s: down");
+    char* pack;
+    pack = allocPack(PSIZE_MOVE);
+    pack[0] = PTYPE_MOVE;
+    debug_print("Setting Id: %d\n", playerId);
+    memcpy(&pack[1], &playerId, sizeof(playerId));
+    debug_print("Id was set: %d\n", *(int*)(pack+1));
     while(1){
         char* move;
         fscanf(stdin,"%s", move);
         // Get vector
-        int vector[2] = {0,0};
         if(move[0] == 'a'){
-            vector[1] = -1;
+            pack[5] = DIR_LEFT;
         }else if( move[0] == 'w' ){
-            vector[0] = -1;
+            pack[5] = DIR_UP;
         }else if( move[0] == 'd' ){
-            vector[1] = 1;
+            pack[5] = DIR_RIGHT;
         }else if( move[0] == 's' ){
-            vector[0] = 1;
-        }
-        // Wrong   
-        if( vector[0] == 0 && vector[1] == 0 ){
+            pack[5] = DIR_DOWN;
+        }else{
             continue;
         }
         /* Send move */
-        int packSize = sizeof(char)+sizeof(int)*3;
-        char* pack = (char*)malloc(packSize);
-        pack[0] = 'A';
-        pack[1] = playerId;
-        memcpy(&pack[5],&vector, sizeof(vector));
-        debug_print("%s\n", "Sending...");
-        if (send(sock, pack, packSize, 0) != packSize) {
-            Die("Mismatch in number of sent bytes");
-        }
+        safeSend(sock, pack, PSIZE_MOVE, 0);
         printf("You'r move was: %c\n", move[0]);
+    }
+    if(pack!=0){
+        free(pack);
     }
 };
 
@@ -114,11 +112,12 @@ int main(int argc, char *argv[]) {
     }
     
     playerId = joinGame(sock);
+    // debug_print("Id Has been received and set: %d\n", playerId);
     waitForStart(sock);
 
        
     //Receive stuff from a server
-    //pthread_create(&tid, NULL, actionTherad, (void*)(intptr_t) sock);   
+    pthread_create(&tid, NULL, actionTherad, (void*)(intptr_t) sock);   
     
     while(1){
         packtype = receivePacktype(sock);
@@ -134,6 +133,8 @@ int main(int argc, char *argv[]) {
         if( (int)packtype == PTYPE_PLAYERS ){
             // Kartes renderēšana
             float x,y;
+            int xfloor, yfloor; // Lai atrastu lauciņu uz kartes
+
             char** mapBuffer = allocateGameMap(mapWidth,mapHeight);
             memcpy(*mapBuffer,*MAP,mapWidth*mapHeight);
 
@@ -154,21 +155,17 @@ int main(int argc, char *argv[]) {
                 // y = (float)playerObjBuffer[8];
 
                 // Priekš pagaidu renderēšanas
-                // BUG: mēģinot izmanto floor dabonu:
-                // undefined reference to `floorf', lai gan iekļāvu
-                // -lm kompilatora karodziņu.
-                // int xfloor, yfloor;
-                // xfloor = (int)floorf(x);
-                // yfloor = (int)floorf(y);
+                xfloor = (int)floorf(x);
+                yfloor = (int)floorf(y);
 
                 // Spēlētāju tipi pārklājas ar mapes objektu tipiem,
                 // piešķiru vēl neizmantotas tipu vērtības
                 debug_print("Setting %d type Player at x: %d y: %d\n",(int)*(playerObjBuffer+13), (int)x, (int)y);
                 if((int)*(playerObjBuffer+13) == PLTYPE_PACMAN){
-                    mapBuffer[(int)x][(int)y] = -1;
+                    mapBuffer[yfloor][xfloor] = -1;
                 }
                 if((int)*(playerObjBuffer+13) == PLTYPE_GHOST){
-                    mapBuffer[(int)x][(int)y] = -2;
+                    mapBuffer[yfloor][xfloor] = -2;
                 }
                 debug_print("Received player with id: %d\n", *(int*)playerObjBuffer);
             }
@@ -219,7 +216,7 @@ int joinGame(int sock){
         free(pack);
         debug_print("Received Id: %d\n", id);
         if(id > 0){
-            return (int)pack[1];
+            return id;
         }
         // Check for error type
         if( id == -1){

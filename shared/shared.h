@@ -46,6 +46,10 @@
 #define DIR_RIGHT 2
 #define DIR_LEFT 3
 
+// Pielietots spēlētāja inicializēšana, norāda, ka spēlētājs nevirzās 
+// nevienā virzienā
+#define DIR_NONE -1
+
 #define MAX_NICK_SIZE 20
 
 // Spēlētāja stāvoklis
@@ -72,9 +76,10 @@ typedef struct {
     int id;         // Spēlētāja id
     char name[21];  // Spēlētāja vārds
     int points;     // Spēlētāja punkti (pacman) / kills (ghost) 
-    double x;
-    double y;
-    int state;     // PLSTATE_
+    float x;
+    float y;
+    char mdir;      // Kurstības virziens (move direction) glabā DIR_.. vērtību
+    int state;      // PLSTATE_
 } object_t;
 
 void Die(char *mess);

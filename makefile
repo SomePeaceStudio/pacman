@@ -13,10 +13,10 @@ BIN_SERVER=bin/server
 all: mkdir client server 
 
 client: client/client.c shared/shared.h mkdir
-	$(CC) $(CFLAGS) -o $(BIN_CLIENT)  client/client.c shared/shared.c
+	$(CC) client/client.c shared/shared.c $(CFLAGS) -o $(BIN_CLIENT)  
 
 server: server/server.c shared/shared.h mkdir
-	$(CC) $(CFLAGS) -o $(BIN_SERVER) server/server.c shared/shared.c
+	$(CC) server/server.c shared/shared.c $(CFLAGS) -o $(BIN_SERVER) 
 
 clean:
 	rm -r bin

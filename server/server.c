@@ -5,6 +5,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <netinet/in.h>
+#include <pthread.h>
+#include <math.h>
+
 
 // Shared functions for client and server
 #include "../shared/shared.h"
@@ -27,6 +30,8 @@ char** MAP;
 int stateObjCount = 0;
 int MAPHEIGHT;
 int MAPWIDTH;
+pthread_t  tid;   // Second thread
+
 
 // ========================================================================= //
 
@@ -37,12 +42,13 @@ objectNode_t *createObjectNode(object_t* gameObj);
 void deleteObjectWithId(objectNode_t **start, int id);
 int deleteObjectNode(objectNode_t **start, objectNode_t *node);
 void printObjectNodeList(objectNode_t *start);
-void updateState(int id,int x,int y);
+void updateState();
 void sendStateUpdate(int sock);
 void sendMapUpdate(int sock);
 void initNewPlayer(int id, int type, char *name);
-void setSpawnPoint(double *x, double *y);
+void setSpawnPoint(float *x, float *y);
 void sendPlayersState(int sock);
+void* actionTherad();   // Funkcija priekš klienta gājienu apstrādes
 
 
 // ========================================================================= //
@@ -133,10 +139,10 @@ int deleteObjectNode(objectNode_t **start, objectNode_t *node){
 void printObjectNodeList(objectNode_t *start){
     printf("%s\n", "===========PLAYERS===========");
     for(objectNode_t *current = start; current != 0; current = current->next){
-        printf("ID: %1d Type: %d X: %2f Y: %2f ST: %d\nName: %s Points: %d\n\n",\
+        printf("ID: %1d Type: %d X: %2f Y: %2f ST: %d\nName: %s Points: %d MDir: %d\n\n",\
            current->object.id, current->object.type, current->object.x, \
            current->object.y, current->object.state, current->object.name, \
-           current->object.points);
+           current->object.points, current->object.mdir);
     }
     printf("Total count: %d\n", stateObjCount);
     printf("%s\n", "=============================");
@@ -150,21 +156,53 @@ object_t* getObject(objectNode_t *start, int id){
             return &(current->object);
         }
     }
+    return 0;
 }
 
 // ========================================================================= //
 
+void* actionTherad(void *parm){
+    int sock = (int)(intptr_t)parm;
+    char* pack = allocPack(PSIZE_MOVE-1);
+    char packtype;
+    object_t *player;
+    
+    while(1){
+        packtype = receivePacktype(sock);
+
+        if((int)packtype == PTYPE_MOVE){
+            safeRecv(sock, pack, PSIZE_MOVE-1, 0);
+            debug_print("%s\n", "Done receiving!");
+            debug_print("Id: %d\n", *(int*)(pack));
+            debug_print("mdir: %d\n", *(pack+4));
+
+            player = getObject(STATE, *(int*)(pack));
+            if(player!=0){
+                player->mdir = *(pack+4);
+                continue;
+            }
+            debug_print("Could not find player to move, id: %d\n" , *(int*)(pack));
+        }else{
+            //TODO: Do something.
+            break;
+        }
+    }
+    debug_print("%s\n", "Exiting actionTherad...");
+    if(pack!=0){
+        free(pack);
+    }
+};
 void HandleClient(int sock) {
     char *pack;
-    char pactype;
+    char packtype;
     int packSize;
     int playerId;
     char playerName[MAX_NICK_SIZE+1];
 
 
     //------- JOIN / ACK -------//
-    pactype = receivePacktype(sock);
-    if((int)pactype == PTYPE_JOIN){
+    packtype = receivePacktype(sock);
+    if((int)packtype == PTYPE_JOIN){
         // Get User Nickname
         safeRecv(sock, &playerName, MAX_NICK_SIZE,0);
         playerName[MAX_NICK_SIZE] = '\0';
@@ -183,7 +221,6 @@ void HandleClient(int sock) {
         safeSend(sock, pack, PSIZE_ACK, 0);
         free(pack);
 
-
     }else{
         //TODO: do something;
     }
@@ -199,54 +236,22 @@ void HandleClient(int sock) {
     pack[4] = getObject(STATE, playerId)->y;
     safeSend(sock, pack, PSIZE_START, 0);
     free(pack);
-
-
     
+    // Apstrādājam klienta gājienus atsevišķā threadā
+    pthread_create(&tid, NULL, actionTherad, (void*)(intptr_t) sock);
 
+    // Main GAME loop
     while(1){
         // Send Map Update 
         sendMapUpdate(sock);
 
         // Send Players
         sendPlayersState(sock);
-        sleep(5);
-    }
 
-    return;
+        // Pavirza spēlētājus uz priekšu
+        updateState();
 
-
-    // Main GAME loop
-    while(1){
-        // Get actions from clients
-        char pactype = '0';
-        /* Receive message type*/
-        debug_print("%s\n", "Receiving packtype...");
-        if (recv(sock, &pactype, sizeof(pactype), 0) < 0) {
-            Die("Failed to receive packtype from server");
-        }
-        debug_print("Received pactype: %c\n", pactype);
-
-        if(pactype == 'A'){
-            debug_print("%s\n", "Receiving client action...");
-            int move[3];
-            if (recv(sock, &move, sizeof(move), 0) < 1) {
-                Die("Failed to receive updateSize from server");
-            }
-            debug_print("Client ID%2d trying to move (%d,%d)\n", move[0],move[1],move[2]);
-            updateState(move[0],move[1],move[2]);
-        }
-
-        // Send State Update
-        sendStateUpdate(sock);
-        printObjectNodeList(STATE); 
-
-
-
-        // Send Only State Updates
-        // State Update pack
-        if(pactype == '0'){
-            break;
-        } 
+        sleep(1);
     }
 
     close(sock);
@@ -259,11 +264,12 @@ void HandleClient(int sock) {
 
 
 int main(int argc, char *argv[]) {
+    printf("%f\n", floorf(-0.5));
     int serversock, clientsock;
-    struct sockaddr_in echoserver, echoclient;
+    struct sockaddr_in gameserver, gameclient;
 
     if (argc != 3) {
-      fprintf(stderr, "USAGE: echoserver <port> <mapfile>\n");
+      fprintf(stderr, "USAGE: gameserver <port> <mapfile>\n");
       exit(1);
     }
     /* Create the TCP socket */
@@ -271,14 +277,14 @@ int main(int argc, char *argv[]) {
       Die("Failed to create socket");
     }
     /* Construct the server sockaddr_in structure */
-    memset(&echoserver, 0, sizeof(echoserver));       /* Clear struct */
-    echoserver.sin_family = AF_INET;                  /* Internet/IP */
-    echoserver.sin_addr.s_addr = htonl(INADDR_ANY);   /* Incoming addr */
-    echoserver.sin_port = htons(atoi(argv[1]));       /* server port */
+    memset(&gameserver, 0, sizeof(gameserver));       /* Clear struct */
+    gameserver.sin_family = AF_INET;                  /* Internet/IP */
+    gameserver.sin_addr.s_addr = htonl(INADDR_ANY);   /* Incoming addr */
+    gameserver.sin_port = htons(atoi(argv[1]));       /* server port */
 
      /* Bind the server socket */
-    if (bind(serversock, (struct sockaddr *) &echoserver,
-                               sizeof(echoserver)) < 0) {
+    if (bind(serversock, (struct sockaddr *) &gameserver,
+                               sizeof(gameserver)) < 0) {
         Die("Failed to bind the server socket");
     }
 
@@ -314,96 +320,109 @@ int main(int argc, char *argv[]) {
     if (listen(serversock, MAXPENDING) < 0) {
         Die("Failed to listen on server socket");
     }
+
     /* Run until cancelled */
     while (1) {
-        unsigned int clientlen = sizeof(echoclient);
+        unsigned int clientlen = sizeof(gameclient);
         /* Wait for client connection */
         if ((clientsock =
-           accept(serversock, (struct sockaddr *) &echoclient,
+           accept(serversock, (struct sockaddr *) &gameclient,
                   &clientlen)) < 0) {
             Die("Failed to accept client connection");
         }
         fprintf(stdout, "Client connected: %s\n", 
-                    inet_ntoa(echoclient.sin_addr));
+                    inet_ntoa(gameclient.sin_addr));
         HandleClient(clientsock);
     }
 }
 
 // ========================================================================= //
 
-//UNUSED 
-void updateState(int id,int x,int y){
-    objectNode_t* client = 0;
-    for(objectNode_t *current = STATE; current != 0; current = current->next){
-        if(current->object.id == id){
-            client = current;
-            debug_print("    %s\n", "Clinet has been found!");
-            break;
-        }
-    }
-    if (client == 0){
-        debug_print("    %s\n", "Could not find client!");
-        return;
-    }
-    short canMove = 1;
-    for(objectNode_t *current = STATE; current != 0; current = current->next){
-        //TODO: calculate in decimals
-        if(current->object.x == client->object.x+x\
-            && current->object.y == client->object.y+y){
-            debug_print("    %s\n", "Found collision object!");
-            // Collides
-            // If client is a packman
-            if(client->object.type == '2'){
-                // If collides with ghost
-                if(current->object.type == '4'){
-                    debug_print("%s\n", "Packman collides with Ghost.");
-                    deleteObjectWithId(&STATE, client->object.id);
-                    canMove = 0;
-                    return;
-                }  
-                // If collides with point
-                if(current->object.type == '3'){
-                    debug_print("%s\n", "Packman collides with Point.");
-                    // TODO: Update Score table, add point to Packman
-                    // Set point to empty space
-                    current->object.type = '0';
-                }
-                // If collides with powerup
-                if(current->object.type == '5'){
-                    debug_print("%s\n", "Packman collides with Powerup.");
-                    // TODO: Do something
-                }   
-                // If collides with wall
-                if(current->object.type == '1'){
-                    debug_print("%s\n", "Packman collides with wall.");
-                    canMove = 0;
-                }                  
-            }
-            // If client is a Ghost
-            if(client->object.type == '4'){
-                // If collides with Packman
-                if(current->object.type == '2'){
-                    debug_print("%s\n", "Ghost collides with Packman.");
-                    // Delete packman
-                    deleteObjectWithId(&STATE, current->object.id);
-                    // TODO: Add one score to Ghost
-                    break;
-                }
-                // If collides with wall
-                if(current->object.type == '1'){
-                    debug_print("%s\n", "Ghost collides with wall.");
-                    canMove = 0;
-                }  
-            }
-            
-        }
-    }
-    if(canMove){
-        debug_print("Moving client with id %2d\n", client->object.id);
-        client->object.x += x;
-        client->object.y += y;
-    }
+void updateState(){
+    float *x, *y;
+    int mdir;
+    int canMove;        // Vai gājienu var izdarīt (vai priekšā nav siena);
+    float speed = 1;  // Vina gājiena lielums vienā game-tick
+    float xSpeed = 0, ySpeed = 0; // Spēlētāja x un y ātrums;
+    char *nextMapTile;   // Kartes lauciņš uz kuru spēlētājs grasās pārvietoties
+    float tileSize = 1; // vienas rūtiņas platums
 
+
+    // Veicam visas kustības visiem spēlētājiem atkarībā no to kursības virziena
+    // Apskatām visas kolīzijas ar kartes objektiem
+    for(objectNode_t *current = STATE; current != 0; current = current->next){
+        x = &(current->object.x);
+        y = &(current->object.y);
+        mdir = (int)(current->object.mdir);
+
+        if(mdir == DIR_UP){
+            ySpeed = -speed;
+        }else if( mdir == DIR_DOWN ){
+            ySpeed = speed;
+        }else if( mdir == DIR_LEFT ){
+            xSpeed = -speed;
+        }else if( mdir == DIR_RIGHT ){
+            xSpeed = speed;
+        }else if ( mdir == DIR_NONE){
+            continue;
+        }
+
+        // Spēlētājs mēģina iziet ārpus kartes robežām
+        if((int)floorf(*y+ySpeed+tileSize/2) >= MAPHEIGHT){
+            *y+=ySpeed-MAPHEIGHT;
+            continue; 
+        }
+        if((int)floorf(*y+ySpeed+tileSize/2) < 0){
+            *y+=ySpeed+MAPHEIGHT;
+            continue; 
+        }
+        if((int)floorf(*x+xSpeed+tileSize/2) >= MAPWIDTH){
+            *x+=xSpeed-MAPHEIGHT;
+            continue;  
+        }
+        if((int)floorf(*x+xSpeed+tileSize/2) < 0){
+            *x+=xSpeed+MAPHEIGHT;
+            continue;  
+        }
+
+        canMove = 1;
+        nextMapTile = &MAP[(int)floorf(*y+ySpeed+tileSize/2)][(int)floorf(*x+xSpeed+tileSize/2)];
+        // Kolīzijas
+        if(current->object.type == PLTYPE_PACMAN || current->object.type == PLTYPE_GHOST){
+            // Kolīzija ar sienu
+            if((int)*nextMapTile == MTYPE_WALL){
+                debug_print("%s\n", "Player collides with wall.");
+                canMove = 0;
+            }                  
+        }
+        if(current->object.type == PLTYPE_PACMAN){
+            if((int)*nextMapTile == MTYPE_DOT){
+                debug_print("%s\n", "Packman collides with Point.");
+                *nextMapTile = MTYPE_EMPTY;
+                current->object.points += 1;
+            }
+            if((int)*nextMapTile == MTYPE_POWER){
+                debug_print("%s\n", "Packman collides with Powerup.");
+                *nextMapTile = MTYPE_EMPTY;
+                // TODO: Do something
+            }
+            if((int)*nextMapTile == MTYPE_INVINCIBILITY){
+                debug_print("%s\n", "Packman collides with Invincibility.");
+                *nextMapTile = MTYPE_EMPTY;
+                // TODO: Do something
+            } 
+            if((int)*nextMapTile == MTYPE_SCORE){
+                debug_print("%s\n", "Packman collides with Extra points.");
+                *nextMapTile = MTYPE_EMPTY;
+                current->object.points += 10;
+            }                   
+        }
+        //TODO: Pārbaudīt kolīzijas Pacman/Ghost
+        if(canMove){
+            *x+=xSpeed;
+            *y+=ySpeed; 
+        }
+    }
 }
 
 // ========================================================================= //
@@ -459,11 +478,11 @@ void sendMapUpdate(int sock){
 
 // ========================================================================= //
 
-void setSpawnPoint(double *x, double *y){
+void setSpawnPoint(float *x, float *y){
     for (int i = 0; i < MAPHEIGHT; ++i){
         for (int j = 0; j < MAPWIDTH; ++j){
             if(MAP[i][j] == MTYPE_EMPTY){
-                *x = i; *y = j;
+                *x = j; *y = i;
                 return;
             }
         }
@@ -482,6 +501,7 @@ void initNewPlayer(int id, int type, char *name){
     newPlayer.points = 0;
     setSpawnPoint(&newPlayer.x, &newPlayer.y);
     int status = PLSTATE_LIVE;
+    newPlayer.mdir = DIR_NONE;
     // Pievieno sarakstam
     addObjectNodeEnd(&STATE, createObjectNode(&newPlayer));
 };

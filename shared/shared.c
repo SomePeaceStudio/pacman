@@ -25,7 +25,7 @@ void safeRecv(int sockfd, void *buf, size_t len, int flags){
     int received;
     if ((received = recv(sockfd, buf, len, flags)) != len) {
         debug_print("Received: %2d bytes, should be: %d\n", received, (int)len);
-        Die("Failed to receive bytes from server");
+        Die("Failed to receive bytes");
     }
     debug_print("Received: %2d bytes\n", received);
 }
