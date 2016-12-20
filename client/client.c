@@ -11,11 +11,6 @@
 // Shared functions for client and server
 #include "../shared/shared.h"
 
-//Unused
-object_t **MAP2;
-int MAPWIDTH;
-int MAPHEIGHT;
-
 // Globals
 char **MAP;
 int mapWidth;
@@ -23,28 +18,16 @@ int mapHeight;
 int playerId;
 char playerName[MAX_NICK_SIZE+1] = "pacMonster007----END";
 pthread_t  tid;   // Second thread
-//tcb- theard control block.;
 
 
 // ========================================================================= //
-// REDONE
+
 int joinGame(int sock);
 char receivePacktype(int sock);
 void waitForStart(int sock);
-void updateMap();
-
-// TO BE REDONE
-// object_t** allocateGameMap2(int width, int height);
-// void initializeMap();
-
 void* actionTherad(void *parm);   /* Thread function to client actions */
 
 // ========================================================================= //
-
-void printObj(object_t obj){
-    printf("ID: %1d Type: %c X: %2f Y: %2f ST: %d\n",\
-        obj.id, obj.type, obj.x, obj.y, obj.state);
-}
 
 void* actionTherad(void *parm){
     int sock = (int)(intptr_t)parm;
@@ -267,83 +250,6 @@ void waitForStart(int sock){
     // Free memory
     if(pack != 0){
         free(pack);
-    }
-}
-
-// ========================================================================= //
-
-object_t** allocateGameMap2(int width, int height){
-    object_t** map;
-    map = (object_t**)malloc(sizeof(object_t)*height);
-    // If did not allocate memory
-    if( map == NULL ){
-        printf("%s\n", "Error: Could not allocate memory");
-        exit(1);
-    }
-    for (int i = 0; i < height; i++){
-        map[i] = malloc(sizeof *map[i] * width);
-        if( map[i] == NULL ){
-            printf("%s\n", "Error: Could not allocate memory");
-            exit(1);
-        }
-    }
-    return map;
-}
-
-// ========================================================================= //
-
-void initializeMap(){
-    MAP2 = allocateGameMap2(MAPWIDTH, MAPHEIGHT);
-    for (int i = 0; i < MAPHEIGHT; ++i){
-        for (int j = 0; j < MAPWIDTH; ++j){
-            MAP2[i][j].type = '0';
-            MAP2[i][j].id = -1;
-            MAP2[i][j].x = j;
-            MAP2[i][j].y = i;
-            MAP2[i][j].state = 0;
-        }
-        printf("\n");
-    }
-}
-
-// ========================================================================= //
-
-void updateMap(object_t update){
-    // Ceck if the update x and y are not outside border
-    // If it is - fix it!
-    if(update.x > MAPWIDTH){
-        update.x = (int)update.x % MAPWIDTH;
-    }
-    if(update.y > MAPHEIGHT){
-        update.y = (int)update.y % MAPHEIGHT;
-    }
-    // Check for existing objects
-    object_t* exists = 0;
-    for (int i = 0; i < MAPHEIGHT; ++i){
-        for (int j = 0; j < MAPWIDTH; ++j){
-            if (MAP2[i][j].id == update.id){
-                exists = &MAP2[i][j];                
-            }
-        }
-    }
-    // If Object exits
-    if(exists){
-        //Do something
-        debug_print("%s\n", "OBJECT ALREADY EXISTS!!");
-    }else{
-        int x = (int)update.x;
-        int y = (int)update.y;
-        
-        debug_print("%s\n", "Before Update: ");
-        printObj(MAP2[x][y]);
-        MAP2[x][y].type = update.type;
-        MAP2[x][y].id = update.id;
-        MAP2[x][y].x = update.x;
-        MAP2[x][y].y = update.y;
-        MAP2[x][y].state = update.state;
-        
-        debug_print("%s\n", "After Update: ");
-        printObj(MAP2[x][y]);
     }
 }
 
