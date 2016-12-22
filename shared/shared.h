@@ -62,7 +62,6 @@
 #define PLTYPE_GHOST 1
 
 // Kartes objektu tipi
-
 #define MTYPE_EMPTY 0
 #define MTYPE_DOT   1
 #define MTYPE_WALL  2
@@ -70,6 +69,10 @@
 #define MTYPE_INVINCIBILITY 4
 #define MTYPE_SCORE 5
 
+// Nosaka cik daudz pavedieni tiks inicializēti iekš pavedienu kopas
+#define TPOOL_DEFAULT_SIZE 5
+
+// ========================== STRUKTŪRAS =================================== //
 
 typedef struct {
     char type;      // PLTYPE_ pacman vai ghost
@@ -82,6 +85,22 @@ typedef struct {
     char state;      // PLSTATE_
 } object_t;
 
+// ---------------------- Pavedienu apstrādei--------------------------------- //
+
+typedef struct {
+    pthread_t thread;
+    short isFree;
+} thread_elm_t;
+
+typedef struct {
+    volatile thread_elm_t* data;    // Saglabā norādi uz pavedienu kopas sākumu
+    pthread_mutex_t mutex;          // Lai varētu droši palielināt pavedienu 
+                                    // skaitu
+    volatile size_t size;           // Nosaka pavedienu skaitu
+} thread_pool_t;
+
+// ========================== PROTOTIPI ==================================== //
+
 void Die(char *mess);
 void safeSend(int sockfd, const void *buf, size_t len, int flags);
 void safeRecv(int sockfd, void *buf, size_t len, int flags);
@@ -93,5 +112,10 @@ char* translateType(int type);
 void printMap(char** map, int width, int height);
 void printMappacPretty(char* mappac, int width, int height);
 void printMappac(char* mappac, int width, int height);
+// Pavedienu apstrādei
+void initThreadPool(thread_pool_t *pool);
+pthread_t getFreeThead(thread_pool_t *pool);
+void doublePoolSize(thread_pool_t *pool);
+
 
 #endif //SHARED_H

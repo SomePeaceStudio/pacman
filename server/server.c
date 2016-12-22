@@ -30,8 +30,8 @@ char** MAP;
 int stateObjCount = 0;
 int MAPHEIGHT;
 int MAPWIDTH;
-pthread_t  tid;   // Second thread
-
+pthread_t  mainGameThead;   // Second thread
+thread_pool_t threadPool;
 
 // ========================================================================= //
 
@@ -48,115 +48,19 @@ void sendMapUpdate(int sock);
 void initNewPlayer(int id, int type, char *name);
 void setSpawnPoint(float *x, float *y);
 void sendPlayersState(int sock);
-void* actionTherad();   // Funkcija priekš klienta gājienu apstrādes
-
-
-// ========================================================================= //
-
-void addObjectNode(objectNode_t **start, objectNode_t *newNode){
-    stateObjCount++;
-    // If List is empty
-    if(*start == 0){
-        *start = newNode;
-        return;
-    }
-    // If List not empty
-    newNode->next = *start;
-    *start = newNode;
-}
+void* actionTherad(void *parm);   // Funkcija priekš klienta gājienu apstrādes
+void* handleClient(void *parm);
+void* mainGameLoop();
+object_t* getObject(objectNode_t *start, int id);
 
 // ========================================================================= //
 
-void addObjectNodeEnd(objectNode_t **start, objectNode_t *newNode){
-    stateObjCount++;
-    // If List is empty
-    if(*start == 0){
-        *start = newNode;
-        return;
+void* mainGameLoop(){
+    while(1){
+        // Pavirza spēlētājus uz priekšu
+        updateState();
+        sleep(1);
     }
-    // If List not empty
-    for(objectNode_t *current = *start; current != 0; current = current->next){
-        if(current->next == 0){
-            current->next = newNode;
-            return;
-        }
-    }
-}
-
-// ------------------------------------------------------------------------- //
-
-objectNode_t *createObjectNode(object_t* gameObj){
-    objectNode_t *newNode;
-    newNode = (objectNode_t*)malloc(sizeof(objectNode_t));
-    // If did not allocate memory
-    if( newNode == NULL ){
-        printf("%s\n", "Error: Could not allocate memory");
-        exit(1);
-    }
-    newNode->next = 0;
-    memcpy(&(newNode->object), gameObj, sizeof(object_t));
-    return newNode;
-};
-
-// ------------------------------------------------------------------------- //
-
-void deleteObjectWithId(objectNode_t **start, int id){
-    for(objectNode_t *current = *start; current != 0; current = current->next){
-        if(current->object.id == id){
-            if(deleteObjectNode(start, current)){
-                debug_print("Could not delete node with id: %d\n", id);
-            };
-            stateObjCount--;
-            return;
-        }
-    }
-}
-
-// ------------------------------------------------------------------------- //
-
-int deleteObjectNode(objectNode_t **start, objectNode_t *node){
-    objectNode_t* tmp = *start;
-    // Node is head
-    if(*start == node){
-        *start = (*start)->next;
-        free(tmp);
-        return 0;
-    }
-    // Node is not head
-    for(objectNode_t *current = (*start)->next; current != 0; current = current->next){
-        if(current == node){
-            tmp->next = current->next;
-            free(current);
-            return 0;
-        }
-        tmp = tmp->next;
-    }
-    return 1;
-}
-
-// ------------------------------------------------------------------------- //
-
-void printObjectNodeList(objectNode_t *start){
-    printf("%s\n", "===========PLAYERS===========");
-    for(objectNode_t *current = start; current != 0; current = current->next){
-        printf("ID: %1d Type: %d X: %2f Y: %2f ST: %d\nName: %s Points: %d MDir: %d\n\n",\
-           current->object.id, current->object.type, current->object.x, \
-           current->object.y, current->object.state, current->object.name, \
-           current->object.points, current->object.mdir);
-    }
-    printf("Total count: %d\n", stateObjCount);
-    printf("%s\n", "=============================");
-}
-
-// ------------------------------------------------------------------------- //
-
-object_t* getObject(objectNode_t *start, int id){
-    for(objectNode_t *current = start; current != 0; current = current->next){
-        if(current->object.id == id){
-            return &(current->object);
-        }
-    }
-    return 0;
 }
 
 // ========================================================================= //
@@ -192,7 +96,9 @@ void* actionTherad(void *parm){
         free(pack);
     }
 };
-void HandleClient(int sock) {
+
+void* handleClient(void *parm) {
+    int sock = (int)(intptr_t)parm;
     char *pack;
     char packtype;
     int packSize;
@@ -237,8 +143,10 @@ void HandleClient(int sock) {
     safeSend(sock, pack, PSIZE_START, 0);
     free(pack);
     
+    // TODO: fix this!!
     // Apstrādājam klienta gājienus atsevišķā threadā
-    pthread_create(&tid, NULL, actionTherad, (void*)(intptr_t) sock);
+    pthread_t thead = getFreeThead(&threadPool);
+    pthread_create(&thead, NULL, actionTherad, (void*)(intptr_t) sock);
 
     // Main GAME loop
     while(1){
@@ -247,10 +155,6 @@ void HandleClient(int sock) {
 
         // Send Players
         sendPlayersState(sock);
-
-        // Pavirza spēlētājus uz priekšu
-        updateState();
-
         sleep(1);
     }
 
@@ -267,6 +171,7 @@ int main(int argc, char *argv[]) {
     printf("%f\n", floorf(-0.5));
     int serversock, clientsock;
     struct sockaddr_in gameserver, gameclient;
+    
 
     if (argc != 3) {
       fprintf(stderr, "USAGE: gameserver <port> <mapfile>\n");
@@ -288,7 +193,7 @@ int main(int argc, char *argv[]) {
         Die("Failed to bind the server socket");
     }
 
-    // -------------INITIALIZE MAP------------------------------------------ //
+    // -----------------------INITIALIZE MAP-------------------------------- //
     FILE *mapFile;
     if((mapFile = fopen(argv[2], "r")) == NULL){
         Die("Could not open mapFile");
@@ -316,6 +221,10 @@ int main(int argc, char *argv[]) {
 
     // --------------------------------------------------------------------- //
 
+    // Inicializēju spēlētāju pavedienu kopu un sāku spēles pavedienu
+    initThreadPool(&threadPool);
+    pthread_create(&mainGameThead, NULL, mainGameLoop,0);
+
     /* Listen on the server socket */
     if (listen(serversock, MAXPENDING) < 0) {
         Die("Failed to listen on server socket");
@@ -332,7 +241,11 @@ int main(int argc, char *argv[]) {
         }
         fprintf(stdout, "Client connected: %s\n", 
                     inet_ntoa(gameclient.sin_addr));
-        HandleClient(clientsock);
+
+        // Apstrādājam klientu atsevišķā threadā
+        // TODO: fix this!!
+        pthread_t thead = getFreeThead(&threadPool);
+        pthread_create(&thead, NULL, handleClient, (void*)(intptr_t) clientsock);
     }
 }
 
@@ -342,19 +255,22 @@ void updateState(){
     float *x, *y;
     int mdir;
     int canMove;        // Vai gājienu var izdarīt (vai priekšā nav siena);
-    float speed = 1;  // Vina gājiena lielums vienā game-tick
-    float xSpeed = 0, ySpeed = 0; // Spēlētāja x un y ātrums;
-    char *nextMapTile;   // Kartes lauciņš uz kuru spēlētājs grasās pārvietoties
+    float speed = 1;    // Vina gājiena lielums vienā game-tick
+    float xSpeed, ySpeed; // Spēlētāja x un y ātrums;
+    char *nextMapTile;  // Kartes lauciņš uz kuru spēlētājs grasās pārvietoties
     float tileSize = 1; // vienas rūtiņas platums
 
 
     // Veicam visas kustības visiem spēlētājiem atkarībā no to kursības virziena
     // Apskatām visas kolīzijas ar kartes objektiem
     for(objectNode_t *current = STATE; current != 0; current = current->next){
+        // Iegūstam koordinātes un kustības virzienu
         x = &(current->object.x);
         y = &(current->object.y);
         mdir = (int)(current->object.mdir);
 
+        // Atšifrējam kustības virzienu kā ātrumu x/y virzienā
+        xSpeed = 0; ySpeed = 0;
         if(mdir == DIR_UP){
             ySpeed = -speed;
         }else if( mdir == DIR_DOWN ){
@@ -487,6 +403,7 @@ void setSpawnPoint(float *x, float *y){
             }
         }
     }
+    //TODO: Do something.
     debug_print("%s\n", "Could not find any free spawn place.");
 }
 
@@ -508,3 +425,110 @@ void initNewPlayer(int id, int type, char *name){
 
 // ========================================================================= //
 
+void addObjectNode(objectNode_t **start, objectNode_t *newNode){
+    stateObjCount++;
+    // If List is empty
+    if(*start == 0){
+        *start = newNode;
+        return;
+    }
+    // If List not empty
+    newNode->next = *start;
+    *start = newNode;
+}
+
+// ========================================================================= //
+
+void addObjectNodeEnd(objectNode_t **start, objectNode_t *newNode){
+    stateObjCount++;
+    // If List is empty
+    if(*start == 0){
+        *start = newNode;
+        return;
+    }
+    // If List not empty
+    for(objectNode_t *current = *start; current != 0; current = current->next){
+        if(current->next == 0){
+            current->next = newNode;
+            return;
+        }
+    }
+}
+
+// ------------------------------------------------------------------------- //
+
+objectNode_t *createObjectNode(object_t* gameObj){
+    objectNode_t *newNode;
+    newNode = (objectNode_t*)malloc(sizeof(objectNode_t));
+    // If did not allocate memory
+    if( newNode == NULL ){
+        printf("%s\n", "Error: Could not allocate memory");
+        exit(1);
+    }
+    newNode->next = 0;
+    memcpy(&(newNode->object), gameObj, sizeof(object_t));
+    return newNode;
+};
+
+// ------------------------------------------------------------------------- //
+
+void deleteObjectWithId(objectNode_t **start, int id){
+    for(objectNode_t *current = *start; current != 0; current = current->next){
+        if(current->object.id == id){
+            if(deleteObjectNode(start, current)){
+                debug_print("Could not delete node with id: %d\n", id);
+            };
+            stateObjCount--;
+            return;
+        }
+    }
+}
+
+// ------------------------------------------------------------------------- //
+
+int deleteObjectNode(objectNode_t **start, objectNode_t *node){
+    objectNode_t* tmp = *start;
+    // Node is head
+    if(*start == node){
+        *start = (*start)->next;
+        free(tmp);
+        return 0;
+    }
+    // Node is not head
+    for(objectNode_t *current = (*start)->next; current != 0; current = current->next){
+        if(current == node){
+            tmp->next = current->next;
+            free(current);
+            return 0;
+        }
+        tmp = tmp->next;
+    }
+    return 1;
+}
+
+// ------------------------------------------------------------------------- //
+
+void printObjectNodeList(objectNode_t *start){
+    printf("%s\n", "===========PLAYERS===========");
+    for(objectNode_t *current = start; current != 0; current = current->next){
+        printf("ID: %1d Type: %d X: %2f Y: %2f ST: %d\nName: %s Points: %d MDir: %d\n\n",\
+           current->object.id, current->object.type, current->object.x, \
+           current->object.y, current->object.state, current->object.name, \
+           current->object.points, current->object.mdir);
+    }
+    printf("Total count: %d\n", stateObjCount);
+    printf("%s\n", "=============================");
+}
+
+// ------------------------------------------------------------------------- //
+
+object_t* getObject(objectNode_t *start, int id){
+    for(objectNode_t *current = start; current != 0; current = current->next){
+        if(current->object.id == id){
+            return &(current->object);
+        }
+    }
+    return 0;
+}
+
+// ========================================================================= //
