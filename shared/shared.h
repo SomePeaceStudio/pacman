@@ -79,7 +79,7 @@ typedef struct {
     float x;
     float y;
     char mdir;      // Kurstības virziens (move direction) glabā DIR_.. vērtību
-    int state;      // PLSTATE_
+    char state;      // PLSTATE_
 } object_t;
 
 void Die(char *mess);

@@ -72,14 +72,6 @@ char** allocateGameMap(int width, int height){
 
 // ========================================================================= //
 
-// Encoding
-// 0 None
-// 1 Dot
-// 2 Wall
-// 3 PowerPellet
-// 4 Invincibility
-// 5 Score
-
 char* translateType(int type){
     if (type == -2){
         return ANSI_COLOR_BLUE "G" ANSI_COLOR_RESET;

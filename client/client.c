@@ -11,6 +11,7 @@
 // Shared functions for client and server
 #include "../shared/shared.h"
 
+
 // Globals
 char **MAP;
 int mapWidth;

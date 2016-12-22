@@ -500,7 +500,7 @@ void initNewPlayer(int id, int type, char *name){
     strcpy(newPlayer.name, name);
     newPlayer.points = 0;
     setSpawnPoint(&newPlayer.x, &newPlayer.y);
-    int status = PLSTATE_LIVE;
+    newPlayer.state = PLSTATE_LIVE;
     newPlayer.mdir = DIR_NONE;
     // Pievieno sarakstam
     addObjectNodeEnd(&STATE, createObjectNode(&newPlayer));
