@@ -185,7 +185,7 @@ int main(int argc, char *argv[]) {
     memset(&gameserver, 0, sizeof(gameserver));       /* Clear struct */
     gameserver.sin_family = AF_INET;                  /* Internet/IP */
     gameserver.sin_addr.s_addr = htonl(INADDR_ANY);   /* Incoming addr */
-    gameserver.sin_port = htons(atoi(argv[1]));       /* server port */
+    gameserver.sin_port = htons(atoi(argv[2]));       /* server port */
 
      /* Bind the server socket */
     if (bind(serversock, (struct sockaddr *) &gameserver,
@@ -195,7 +195,7 @@ int main(int argc, char *argv[]) {
 
     // -----------------------INITIALIZE MAP-------------------------------- //
     FILE *mapFile;
-    if((mapFile = fopen(argv[2], "r")) == NULL){
+    if((mapFile = fopen(argv[1], "r")) == NULL){
         Die("Could not open mapFile");
         return 1;
     }    
@@ -224,6 +224,8 @@ int main(int argc, char *argv[]) {
     // Inicializēju spēlētāju pavedienu kopu un sāku spēles pavedienu
     initThreadPool(&threadPool);
     pthread_create(&mainGameThead, NULL, mainGameLoop,0);
+    //doublePoolSize(&threadPool);
+
 
     /* Listen on the server socket */
     if (listen(serversock, MAXPENDING) < 0) {

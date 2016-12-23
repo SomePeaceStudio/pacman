@@ -18,5 +18,5 @@ bin/client 127.0.0.1 < port >
 
 Server:
 ```
-bin/server < port > map
+bin/server map < port >
 ```
