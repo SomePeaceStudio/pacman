@@ -63,7 +63,6 @@ void* actionTherad(void *parm){
     }
 };
 
-
 int main(int argc, char *argv[]) {
     int sock;
     struct sockaddr_in gameserver;
@@ -92,7 +91,7 @@ int main(int argc, char *argv[]) {
     if (connect(sock,
                 (struct sockaddr *) &gameserver,
                 sizeof(gameserver)) < 0) {
-      Die("Failed to connect with server");
+      Die("Failed to connect to server");
     }
     
     playerId = joinGame(sock);

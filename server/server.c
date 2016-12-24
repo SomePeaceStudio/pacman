@@ -11,6 +11,7 @@
 
 // Shared functions for client and server
 #include "../shared/shared.h"
+#include "../shared/threads.h"
 
 #define MAXPENDING 5    /* Max connection requests */
 
@@ -195,8 +196,8 @@ int main(int argc, char *argv[]) {
 
     // -----------------------INITIALIZE MAP-------------------------------- //
     FILE *mapFile;
-    if((mapFile = fopen(argv[1], "r")) == NULL){
-        Die("Could not open mapFile");
+    if((mapFile = fopen(argv[2], "r")) == NULL){
+        Die("Could not open map file");
         return 1;
     }    
 
