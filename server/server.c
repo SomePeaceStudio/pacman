@@ -224,7 +224,6 @@ int main(int argc, char *argv[]) {
     // Inicializēju spēlētāju pavedienu kopu un sāku spēles pavedienu
     initThreadPool(&threadPool);
     pthread_create(&mainGameThead, NULL, mainGameLoop,0);
-    //doublePoolSize(&threadPool);
 
 
     /* Listen on the server socket */

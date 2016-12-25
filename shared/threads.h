@@ -11,9 +11,10 @@ typedef struct {
 
 typedef struct {
     volatile thread_elm_t* data;    // Saglabā norādi uz pavedienu kopas sākumu
+    volatile size_t size;           // Nosaka pavedienu skaitu
     pthread_mutex_t mutex;          // Lai varētu droši palielināt pavedienu 
                                     // skaitu
-    volatile size_t size;           // Nosaka pavedienu skaitu
+    
 } thread_pool_t;
 
 

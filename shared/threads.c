@@ -39,11 +39,9 @@ pthread_t getFreeThead(thread_pool_t *pool){
 // ------------------------------------------------------------------------- //
 
 // Tiek pieņemts, ka doublePoolSize() tiks izmantots tikai iekš mutex_lock
-// TODO: Funkcija nestrādā ka vajaga, vairāk par 2x spēlētājiem 
-// realloc(): invalid pointer errors.
 void doublePoolSize(thread_pool_t *pool){
     size_t currentSize = pool->size*sizeof(thread_elm_t);
-    pool->data = realloc(&(pool->data), currentSize*2);
+    pool->data = realloc((thread_elm_t*)pool->data, currentSize*2);
     if(pool->data == 0){
         Die("Could not Allocate memory for exta thead pool size");
     }
