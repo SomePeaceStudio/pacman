@@ -143,11 +143,8 @@ void* handleClient(void *parm) {
     pack[4] = getObject(STATE, playerId)->y;
     safeSend(sock, pack, PSIZE_START, 0);
     free(pack);
-    
-    // TODO: fix this!!
-    // Apstrādājam klienta gājienus atsevišķā threadā
-    pthread_t thead = getFreeThead(&threadPool);
-    pthread_create(&thead, NULL, actionTherad, (void*)(intptr_t) sock);
+
+    pthread_create(getFreeThead(&threadPool), NULL, actionTherad, (void*)(intptr_t) sock);
 
     // Main GAME loop
     while(1){
@@ -244,9 +241,7 @@ int main(int argc, char *argv[]) {
                     inet_ntoa(gameclient.sin_addr));
 
         // Apstrādājam klientu atsevišķā threadā
-        // TODO: fix this!!
-        pthread_t thead = getFreeThead(&threadPool);
-        pthread_create(&thead, NULL, handleClient, (void*)(intptr_t) clientsock);
+        pthread_create( getFreeThead(&threadPool) , NULL, handleClient, (void*)(intptr_t) clientsock);
     }
 }
 

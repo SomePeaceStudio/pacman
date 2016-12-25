@@ -18,7 +18,7 @@ void initThreadPool(thread_pool_t *pool){
 
 // ------------------------------------------------------------------------- //
 
-pthread_t getFreeThead(thread_pool_t *pool){
+pthread_t* getFreeThead(thread_pool_t *pool){
     // Atgriežam pirmo brīvo pavedienu
     pthread_mutex_lock(&pool->mutex);
     int i;
@@ -26,14 +26,14 @@ pthread_t getFreeThead(thread_pool_t *pool){
         if(pool->data[i].isFree == 1){
             pool->data[i].isFree = 0;
             pthread_mutex_unlock(&pool->mutex);
-            return pool->data[i].thread;
+            return (pthread_t*)(&pool->data[i].thread);
         }
     }
     // Ja nav brīvu pavedienu palielinām pavedienu kopu
     doublePoolSize(pool);
     pool->data[i].isFree = 0;
     pthread_mutex_unlock(&pool->mutex);
-    return pool->data[i].thread;
+    return (pthread_t*)(&pool->data[i].thread);
 }
 
 // ------------------------------------------------------------------------- //
