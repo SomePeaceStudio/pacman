@@ -169,7 +169,6 @@ void* handleClient(void *parm) {
 
 
 int main(int argc, char *argv[]) {
-    printf("%f\n", floorf(-0.5));
     int serversock, clientsock;
     struct sockaddr_in gameserver, gameclient;
     
@@ -196,7 +195,7 @@ int main(int argc, char *argv[]) {
 
     // -----------------------INITIALIZE MAP-------------------------------- //
     FILE *mapFile;
-    if((mapFile = fopen(argv[2], "r")) == NULL){
+    if((mapFile = fopen(argv[1], "r")) == NULL){
         Die("Could not open map file");
         return 1;
     }    
