@@ -1,7 +1,9 @@
 #include <pthread.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "threads.h"
 #include "shared.h"
+
 
 void initThreadPool(thread_pool_t *pool){
     // Pieprasām atmiņu priekš noklusētā daudzuma pavedienu
@@ -18,7 +20,7 @@ void initThreadPool(thread_pool_t *pool){
 
 // ------------------------------------------------------------------------- //
 
-pthread_t* getFreeThead(thread_pool_t *pool){
+pthread_t* getFreeThread(thread_pool_t *pool){
     // Atgriežam pirmo brīvo pavedienu
     pthread_mutex_lock(&pool->mutex);
     int i;
@@ -46,6 +48,32 @@ void doublePoolSize(thread_pool_t *pool){
         Die("Could not Allocate memory for exta thead pool size");
     }
     pool->size = currentSize*2;
+}
+
+// ========================================================================= //
+
+void freeThread(thread_pool_t* pool, pthread_t thread){
+    for (int i = 0; i < pool->size; ++i){
+        if(pool->data[i].thread == thread){
+            pool->data[i].isFree = 1;
+            return;
+        }
+    }
+    debug_print("%s\n", "Could not find thread to free");
+}
+
+// ========================================================================= //
+
+int countFreeThreads(thread_pool_t* pool){
+    pthread_mutex_lock(&pool->mutex);
+    int count = 0;
+    for (int i = 0; i < pool->size; ++i){
+        if(pool->data[i].isFree == 1){
+            count++;
+        }
+    }
+    pthread_mutex_unlock(&pool->mutex);
+    return count;
 }
 
 // ========================================================================= //
