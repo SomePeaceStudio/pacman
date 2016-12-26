@@ -70,7 +70,9 @@
 #define MTYPE_SCORE 5
 
 //Teksti, ko varētu izmantot vairākās vietās
-#define ERR_MALLOC "Error: failed to allocate memory"
+#define ERR_MALLOC "Failed to allocate memory"
+#define ERR_SOCKET "Failed to create socket"
+#define ERR_CONNECT "Failed to connect to server"
 
 // ========================== STRUKTŪRAS =================================== //
 
