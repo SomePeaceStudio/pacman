@@ -69,6 +69,9 @@
 #define MTYPE_INVINCIBILITY 4
 #define MTYPE_SCORE 5
 
+//Teksti, ko varētu izmantot vairākās vietās
+#define ERR_MALLOC "Error: failed to allocate memory"
+
 // ========================== STRUKTŪRAS =================================== //
 
 typedef struct {

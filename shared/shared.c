@@ -55,13 +55,13 @@ char receivePacktype(int sock){
 char** allocateGameMap(int width, int height){
     char *data = (char *)malloc( width * height );
     if( data == NULL ){
-        printf("%s\n", "Error: Could not allocate memory");
+        printf(ERR_MALLOC);
         exit(1);
     }
 
     char **map = (char **)malloc( height * sizeof(char*) );
     if( map == NULL ){
-        printf("%s\n", "Error: Could not allocate memory");
+        printf(ERR_MALLOC);
         exit(1);
     }
     for (int i = 0; i < height; i++)
