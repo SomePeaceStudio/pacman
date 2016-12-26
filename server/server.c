@@ -462,7 +462,7 @@ objectNode_t *createObjectNode(object_t* gameObj){
     newNode = (objectNode_t*)malloc(sizeof(objectNode_t));
     // If did not allocate memory
     if( newNode == NULL ){
-        printf("%s\n", "Error: Could not allocate memory");
+        printf(ERR_MALLOC);
         exit(1);
     }
     newNode->next = 0;
