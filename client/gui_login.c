@@ -13,7 +13,9 @@
 #define ERR_PORT "Please enter a valid port number"
 #define ERR_NICK_EMPTY "Please enter a nick"
 #define ERR_NICK_TAKEN "Chosen nick is already taken"
+#define ERR_NICK_TOO_LONG "Nick is too long (max: 20)"
 #define ERR_CONNECTION "Failed to connect to server"
+#define ERR_SERVER_FULL "Server is full"
 
 //Struktūra, lai padotu visus ievadformas datus pogas callback funkcijai
 typedef struct {
@@ -27,9 +29,10 @@ static void connect_clicked (GtkWidget* widget, gpointer data);
 //Izveido un parāda visus logrīkus (widgets)
 static void activate (GtkApplication *app, gpointer user_data);
 //Mēģina pievienoties serverim
-bool try_connect(in_addr_t address, uint16_t port, const char* nick);
+int try_connect(in_addr_t address, uint16_t port, const char* nick);
 //Parāda kļūdas paziņojumu. widget ir nepieciešams, lai atrasu GtkWindow
 void show_error(const char* message, GtkWidget* widget);
+int joinGame(int sock, const char* playerName);
 
 int main (int argc, char *argv[]) {
     GtkApplication *app;
@@ -42,6 +45,7 @@ int main (int argc, char *argv[]) {
 
     return status;
 }
+
 
 static void connect_clicked (GtkWidget* widget, gpointer data) {
     InputForm* form = (InputForm*)data;
@@ -70,22 +74,46 @@ static void connect_clicked (GtkWidget* widget, gpointer data) {
         return;
     }
     
+    if (strlen(nickText) > 20) {
+        show_error(ERR_NICK_TOO_LONG, form->portInput);
+        return;
+    }
+    
     //Uzstāda "loading" kursoru
     GdkDisplay* display = gtk_widget_get_display (widget);
     GdkWindow* window = gtk_widget_get_parent_window(widget);
     GdkCursor* cursor = gdk_cursor_new_for_display(display, GDK_WATCH);
     gdk_window_set_cursor(window, cursor);
     
-    // if (try_connect(address, port, nickText)) {
-    //     printf("Success\n");
-    // } else {
-    //     show_error(ERR_CONNECT, form->portInput);
-    // }
+    int id = try_connect(address, port, nickText);
+    
+    switch (id) {
+        case -1:
+            show_error(ERR_NICK_TAKEN, form->portInput);
+            break;
+            
+        case -2:
+            show_error(ERR_SERVER_FULL, form->portInput);
+            break;
+            
+        case -3:
+            show_error(ERR_CONNECTION, form->portInput);
+            break;
+            
+        case -4:
+            show_error(ERR_CONNECTION, form->portInput);
+            break;
+    }
+    
+    if (id > 0) {
+        show_error("CONNECTED!!!!", form->portInput);
+    }
     
     //Uzstāda atpakaļ normālo kursoru
     cursor = gdk_cursor_new_for_display(display, GDK_ARROW);
     gdk_window_set_cursor(window, cursor);
 }
+
 
 static void activate (GtkApplication *app, gpointer user_data) {
     GtkWidget* window;
@@ -145,6 +173,72 @@ static void activate (GtkApplication *app, gpointer user_data) {
     //Parāda visu
     gtk_widget_show_all (window);
 }
+
+
+//Argriež spēlētāja id vai kļūdas paziņojumu no joinGame() vai:
+//-4: ja neizdevās savienoties ar serveri
+int try_connect(in_addr_t address, uint16_t port, const char* nick) {
+    int sock;
+    struct sockaddr_in serverAddress;
+    
+    /* Create the TCP socket */
+    if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+        Die(ERR_SOCKET);
+    }    
+    
+    /* Construct the server sockaddr_in structure */
+    memset(&serverAddress, 0, sizeof(serverAddress));  /* Clear struct */
+    serverAddress.sin_family = AF_INET;                /* Internet/IP */
+    serverAddress.sin_addr.s_addr = address;           /* IP address */
+    serverAddress.sin_port = port;                     /* server port */
+    
+    //Try to establish connection
+    if (connect(sock,
+                (struct sockaddr *) &serverAddress,
+                sizeof(serverAddress)) < 0) {
+        return -4;
+    }
+    
+    return joinGame(sock, nick);
+}
+
+
+//Atgriež spēlētāja id, vai kļūdas kodu:
+//-1: niks aizņemts
+//-2: serveris pilns
+//-3: nepareiza / negaidīta atbilde no servera
+int joinGame(int sock, const char* playerName) {
+    char* pack;
+
+    //1. baits paketes tipam
+    pack = allocPack(PSIZE_JOIN);
+    pack[0] = PTYPE_JOIN;
+    debug_print("Size of name: %ld\n", sizeof(playerName));
+    memcpy(&pack[1], playerName, strlen(playerName));
+
+    // Send JOIN packet
+    debug_print("%s\n", "Sending JOIN packet...");
+    safeSend(sock, pack, PSIZE_JOIN, 0);
+    free(pack);
+
+    // Receive ACK
+    pack = allocPack(PSIZE_ACK);
+    
+    safeRecv(sock, pack, PSIZE_ACK, 0);
+    debug_print("%s\n", "ACK reveived.");
+    
+    int id;
+    if(pack[0] == PTYPE_ACK) {
+        id = (int)pack[1];
+    } else {
+        //Ja atsūtīta nepareiza tipa pakete
+        id = -3;
+    }
+    
+    free(pack);
+    return id;
+}
+
 
 void show_error(const char* message, GtkWidget* widget) {
     //Dabū window objektu
