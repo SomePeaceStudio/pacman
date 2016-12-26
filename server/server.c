@@ -31,7 +31,7 @@ char** MAP;
 int stateObjCount = 0;
 int MAPHEIGHT;
 int MAPWIDTH;
-pthread_t  mainGameThead;   // Second thread
+pthread_t  mainGameThread;   // Second thread
 thread_pool_t threadPool;
 
 // ========================================================================= //
@@ -49,7 +49,7 @@ void sendMapUpdate(int sock);
 void initNewPlayer(int id, int type, char *name);
 void setSpawnPoint(float *x, float *y);
 void sendPlayersState(int sock);
-void* actionTherad(void *parm);   // Funkcija priekš klienta gājienu apstrādes
+void* actionThread(void *parm);   // Funkcija priekš klienta gājienu apstrādes
 void* handleClient(void *parm);
 void* mainGameLoop();
 object_t* getObject(objectNode_t *start, int id);
@@ -66,7 +66,7 @@ void* mainGameLoop(){
 
 // ========================================================================= //
 
-void* actionTherad(void *parm){
+void* actionThread(void *parm){
     int sock = (int)(intptr_t)parm;
     char* pack = allocPack(PSIZE_MOVE-1);
     char packtype;
@@ -74,7 +74,6 @@ void* actionTherad(void *parm){
     
     while(1){
         packtype = receivePacktype(sock);
-
         if((int)packtype == PTYPE_MOVE){
             safeRecv(sock, pack, PSIZE_MOVE-1, 0);
             debug_print("%s\n", "Done receiving!");
@@ -92,7 +91,7 @@ void* actionTherad(void *parm){
             break;
         }
     }
-    debug_print("%s\n", "Exiting actionTherad...");
+    debug_print("%s\n", "Exiting actionThread...");
     if(pack!=0){
         free(pack);
     }
@@ -105,7 +104,7 @@ void* handleClient(void *parm) {
     int packSize;
     int playerId;
     char playerName[MAX_NICK_SIZE+1];
-
+    pthread_t* actionThreadId;
 
     //------- JOIN / ACK -------//
     packtype = receivePacktype(sock);
@@ -144,7 +143,8 @@ void* handleClient(void *parm) {
     safeSend(sock, pack, PSIZE_START, 0);
     free(pack);
 
-    pthread_create(getFreeThead(&threadPool), NULL, actionTherad, (void*)(intptr_t) sock);
+    actionThreadId = getFreeThread(&threadPool);
+    pthread_create(actionThreadId, NULL, actionThread, (void*)(intptr_t) sock);
 
     // Main GAME loop
     while(1){
@@ -161,14 +161,17 @@ void* handleClient(void *parm) {
     debug_print("%s\n", "Updating state..");
     deleteObjectWithId(&STATE, playerId);
     printObjectNodeList(STATE);
-
+    // Atbrīvo pavedienu kurš atbild par gājienu apstrādi
+    freeThread(&threadPool,*actionThreadId);
+    // Atbrīvo pats savu pavedienu
+    freeThread(&threadPool,pthread_self());
+    return 0;
 }
 
 
 int main(int argc, char *argv[]) {
     int serversock, clientsock;
     struct sockaddr_in gameserver, gameclient;
-    
 
     if (argc != 3) {
       fprintf(stderr, "USAGE: gameserver <port> <mapfile>\n");
@@ -220,7 +223,7 @@ int main(int argc, char *argv[]) {
 
     // Inicializēju spēlētāju pavedienu kopu un sāku spēles pavedienu
     initThreadPool(&threadPool);
-    pthread_create(&mainGameThead, NULL, mainGameLoop,0);
+    pthread_create(&mainGameThread, NULL, mainGameLoop,0);
 
 
     /* Listen on the server socket */
@@ -240,8 +243,9 @@ int main(int argc, char *argv[]) {
         fprintf(stdout, "Client connected: %s\n", 
                     inet_ntoa(gameclient.sin_addr));
 
-        // Apstrādājam klientu atsevišķā threadā
-        pthread_create( getFreeThead(&threadPool) , NULL, handleClient, (void*)(intptr_t) clientsock);
+        // Apstrādājam klientu atsevišķā pavedienā
+        debug_print("Free Theads In Pool: %d\n", countFreeThreads(&threadPool));
+        pthread_create( getFreeThread(&threadPool) , NULL, handleClient, (void*)(intptr_t) clientsock);
     }
 }
 

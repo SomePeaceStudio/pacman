@@ -19,7 +19,9 @@ typedef struct {
 
 
 void initThreadPool(thread_pool_t *pool);
-pthread_t* getFreeThead(thread_pool_t *pool);
+pthread_t* getFreeThread(thread_pool_t *pool);
 void doublePoolSize(thread_pool_t *pool);
+void freeThread(thread_pool_t* pool, pthread_t thread);
+int countFreeThreads(thread_pool_t* pool);
 
 #endif //THREADS_H
