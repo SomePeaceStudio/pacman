@@ -133,3 +133,18 @@ void printMappac(char* mappac, int width, int height){
         }        
     }
 }
+
+// ========================================================================= //
+
+int32_t batoi(unsigned char bytes[4]) {
+    return (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
+}
+
+// ========================================================================= //
+
+void itoba (int32_t integer, unsigned char buffer[4]) {
+    buffer[0] = (integer >> 24) & 0xFF;
+    buffer[1] = (integer >> 16) & 0xFF;
+    buffer[2] = (integer >> 8) & 0xFF;
+    buffer[3] = integer & 0xFF;
+}
