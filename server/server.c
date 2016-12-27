@@ -102,7 +102,7 @@ void* handleClient(void *parm) {
     char *pack;
     char packtype;
     int packSize;
-    int playerId;
+    int32_t playerId;
     char playerName[MAX_NICK_SIZE+1];
     pthread_t* actionThreadId;
 

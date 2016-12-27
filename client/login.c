@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 
 #include "../shared/shared.h"
+#include "login.h"
 
 //Teksti, ko rādīt lietotājam
 #define ERR_ADDRESS "Please enter a valid IP address"
@@ -24,28 +25,92 @@ typedef struct {
     GtkWidget* nickInput;
 } InputForm;
 
-//Click callback priekš pogas "Connect"
-static void connect_clicked (GtkWidget* widget, gpointer data);
-//Izveido un parāda visus logrīkus (widgets)
-static void activate (GtkApplication *app, gpointer user_data);
-//Mēģina pievienoties serverim
-int try_connect(in_addr_t address, uint16_t port, const char* nick);
-//Parāda kļūdas paziņojumu. widget ir nepieciešams, lai atrasu GtkWindow
-void show_error(const char* message, GtkWidget* widget);
-int joinGame(int sock, const char* playerName);
-
-int main (int argc, char *argv[]) {
-    GtkApplication *app;
-    int status;
-
-    app = gtk_application_new ("lv.lsp.pacman", G_APPLICATION_FLAGS_NONE);
-    g_signal_connect (app, "activate", G_CALLBACK (activate), NULL);
-    status = g_application_run (G_APPLICATION (app), argc, argv);
-    g_object_unref (app);
-
-    return status;
+//Parāda kļūdas paziņojumu lietotājam.
+//widget (var būt NULL) nepieciešams, lai noteiktu vecāka logu (GtkWindow)
+void show_error(const char* message, GtkWidget* widget) {
+    //Dabū window objektu
+    GtkWindow* window = NULL;
+    GtkWidget* toplevel = gtk_widget_get_toplevel (widget);
+    if (gtk_widget_is_toplevel (toplevel))
+        window = GTK_WINDOW(toplevel);
+    
+    //Izveido un parāda dialogu
+    GtkWidget* dialog = gtk_message_dialog_new(
+        window,             //Dialoga vecāks (logs)
+        GTK_DIALOG_MODAL,   //Dialoga tips
+        GTK_MESSAGE_ERROR,  //Ziņas tips
+        GTK_BUTTONS_CLOSE,  //Poga, kādu parādīt
+        "%s", message       //Ziņa, ko parādīt dialogā
+    );
+    
+    //Parāda dialogu
+    gtk_dialog_run (GTK_DIALOG (dialog));
+    gtk_widget_destroy (dialog);
 }
 
+//Atgriež spēlētāja id, vai kļūdas kodu:
+//-1: niks aizņemts
+//-2: serveris pilns
+//-3: nepareiza / negaidīta atbilde no servera
+int32_t joinGame(int sock, const char* playerName) {
+    char* pack;
+
+    //1. baits paketes tipam
+    pack = allocPack(PSIZE_JOIN);
+    pack[0] = PTYPE_JOIN;
+    debug_print("Size of name: %ld\n", sizeof(playerName));
+    memcpy(&pack[1], playerName, strlen(playerName));
+
+    // Send JOIN packet
+    debug_print("%s\n", "Sending JOIN packet...");
+    safeSend(sock, pack, PSIZE_JOIN, 0);
+    free(pack);
+
+    // Receive ACK
+    pack = allocPack(PSIZE_ACK);
+    
+    safeRecv(sock, pack, PSIZE_ACK, 0);
+    debug_print("%s\n", "ACK reveived.");
+    
+    int id;
+    if(pack[0] == PTYPE_ACK) {
+        id = pack[1];
+        // id = (pack[1] << 24) + (pack[2] << 16) + (pack[3] << 8) + pack[4];
+    } else {
+        //Ja atsūtīta nepareiza tipa pakete
+        id = -3;
+    }
+    
+    free(pack);
+    return id;
+}
+
+//Argriež spēlētāja id vai kļūdas paziņojumu no joinGame() vai:
+//-4: ja neizdevās savienoties ar serveri
+int try_connect(in_addr_t address, uint16_t port, const char* nick) {
+    int sock;
+    struct sockaddr_in serverAddress;
+    
+    /* Create the TCP socket */
+    if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+        Die(ERR_SOCKET);
+    }    
+    
+    /* Construct the server sockaddr_in structure */
+    memset(&serverAddress, 0, sizeof(serverAddress));  /* Clear struct */
+    serverAddress.sin_family = AF_INET;                /* Internet/IP */
+    serverAddress.sin_addr.s_addr = address;           /* IP address */
+    serverAddress.sin_port = port;                     /* server port */
+    
+    //Try to establish connection
+    if (connect(sock,
+                (struct sockaddr *) &serverAddress,
+                sizeof(serverAddress)) < 0) {
+        return -4;
+    }
+    
+    return joinGame(sock, nick);
+}
 
 static void connect_clicked (GtkWidget* widget, gpointer data) {
     InputForm* form = (InputForm*)data;
@@ -86,6 +151,8 @@ static void connect_clicked (GtkWidget* widget, gpointer data) {
     gdk_window_set_cursor(window, cursor);
     
     int id = try_connect(address, port, nickText);
+    
+    printf("Id from connection: %d\n", id);
     
     switch (id) {
         case -1:
@@ -174,87 +241,14 @@ static void activate (GtkApplication *app, gpointer user_data) {
     gtk_widget_show_all (window);
 }
 
+int show_login_form(int argc, char* argv[]) {
+    GtkApplication *app;
+    int status;
 
-//Argriež spēlētāja id vai kļūdas paziņojumu no joinGame() vai:
-//-4: ja neizdevās savienoties ar serveri
-int try_connect(in_addr_t address, uint16_t port, const char* nick) {
-    int sock;
-    struct sockaddr_in serverAddress;
-    
-    /* Create the TCP socket */
-    if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-        Die(ERR_SOCKET);
-    }    
-    
-    /* Construct the server sockaddr_in structure */
-    memset(&serverAddress, 0, sizeof(serverAddress));  /* Clear struct */
-    serverAddress.sin_family = AF_INET;                /* Internet/IP */
-    serverAddress.sin_addr.s_addr = address;           /* IP address */
-    serverAddress.sin_port = port;                     /* server port */
-    
-    //Try to establish connection
-    if (connect(sock,
-                (struct sockaddr *) &serverAddress,
-                sizeof(serverAddress)) < 0) {
-        return -4;
-    }
-    
-    return joinGame(sock, nick);
-}
+    app = gtk_application_new ("lv.lsp.pacman", G_APPLICATION_FLAGS_NONE);
+    g_signal_connect (app, "activate", G_CALLBACK (activate), NULL);
+    status = g_application_run (G_APPLICATION (app), argc, argv);
+    g_object_unref (app);
 
-
-//Atgriež spēlētāja id, vai kļūdas kodu:
-//-1: niks aizņemts
-//-2: serveris pilns
-//-3: nepareiza / negaidīta atbilde no servera
-int joinGame(int sock, const char* playerName) {
-    char* pack;
-
-    //1. baits paketes tipam
-    pack = allocPack(PSIZE_JOIN);
-    pack[0] = PTYPE_JOIN;
-    debug_print("Size of name: %ld\n", sizeof(playerName));
-    memcpy(&pack[1], playerName, strlen(playerName));
-
-    // Send JOIN packet
-    debug_print("%s\n", "Sending JOIN packet...");
-    safeSend(sock, pack, PSIZE_JOIN, 0);
-    free(pack);
-
-    // Receive ACK
-    pack = allocPack(PSIZE_ACK);
-    
-    safeRecv(sock, pack, PSIZE_ACK, 0);
-    debug_print("%s\n", "ACK reveived.");
-    
-    int id;
-    if(pack[0] == PTYPE_ACK) {
-        id = (int)pack[1];
-    } else {
-        //Ja atsūtīta nepareiza tipa pakete
-        id = -3;
-    }
-    
-    free(pack);
-    return id;
-}
-
-
-void show_error(const char* message, GtkWidget* widget) {
-    //Dabū window objektu
-    GtkWindow* window = NULL;
-    GtkWidget* toplevel = gtk_widget_get_toplevel (widget);
-    if (gtk_widget_is_toplevel (toplevel))
-        window = GTK_WINDOW(toplevel);
-    
-    //Izveido un parāda dialogu
-    GtkWidget* dialog = gtk_message_dialog_new(
-        window,
-        GTK_DIALOG_MODAL,
-        GTK_MESSAGE_ERROR,
-        GTK_BUTTONS_CLOSE,
-        "%s", message
-    );
-    gtk_dialog_run (GTK_DIALOG (dialog));
-    gtk_widget_destroy (dialog);
+    return status;
 }
