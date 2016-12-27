@@ -136,7 +136,18 @@ void printMappac(char* mappac, int width, int height){
 
 // ========================================================================= //
 
-int32_t batoi(unsigned char bytes[4]) {
+void printPacket(const unsigned char* packet, size_t length) {    
+    printf("Packet data: ");
+    for (int i = 0; i < length; i++) {
+        printf("%x ", packet[i]);
+    }
+    
+    printf("\n");
+}
+
+// ========================================================================= //
+
+int32_t batoi(const unsigned char bytes[4]) {
     return (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
 }
 
