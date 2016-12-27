@@ -99,7 +99,7 @@ void* actionThread(void *parm){
 
 void* handleClient(void *parm) {
     int sock = (int)(intptr_t)parm;
-    char *pack;
+    unsigned char *pack;
     char packtype;
     int packSize;
     int32_t playerId;
@@ -123,7 +123,13 @@ void* handleClient(void *parm) {
         debug_print("%s\n", "Sending ACK for JOIN");
         pack = allocPack(PSIZE_ACK);
         pack[0] = PTYPE_ACK;
-        memcpy(&pack[1], &playerId, sizeof(playerId));
+        
+        //Iekopē spēlētāja id baitus paketē
+        itoba(playerId, &pack[1]);
+        
+        printf("about to send ACK:\n");
+        printPacket(pack, PSIZE_ACK);
+        
         safeSend(sock, pack, PSIZE_ACK, 0);
         free(pack);
 

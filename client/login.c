@@ -53,7 +53,7 @@ void show_error(const char* message, GtkWidget* widget) {
 //-2: serveris pilns
 //-3: nepareiza / negaidīta atbilde no servera
 int32_t joinGame(int sock, const char* playerName) {
-    char* pack;
+    unsigned char* pack;
 
     //1. baits paketes tipam
     pack = allocPack(PSIZE_JOIN);
@@ -71,11 +71,11 @@ int32_t joinGame(int sock, const char* playerName) {
     
     safeRecv(sock, pack, PSIZE_ACK, 0);
     debug_print("%s\n", "ACK reveived.");
+    printPacket(pack, PSIZE_ACK);
     
-    int id;
+    int32_t id;
     if(pack[0] == PTYPE_ACK) {
-        id = pack[1];
-        // id = (pack[1] << 24) + (pack[2] << 16) + (pack[3] << 8) + pack[4];
+        id = batoi(&pack[1]);
     } else {
         //Ja atsūtīta nepareiza tipa pakete
         id = -3;
