@@ -8,6 +8,7 @@
 
 #include "../shared/shared.h"
 #include "login.h"
+#include "globals.h"
 
 //Teksti, ko rādīt lietotājam
 #define ERR_ADDRESS "Please enter a valid IP address"
@@ -27,7 +28,7 @@ typedef struct {
 
 //Parāda kļūdas paziņojumu lietotājam.
 //widget (var būt NULL) nepieciešams, lai noteiktu vecāka logu (GtkWindow)
-void show_error(const char* message, GtkWidget* widget) {
+void showError(const char* message, GtkWidget* widget) {
     //Dabū window objektu
     GtkWindow* window = NULL;
     GtkWidget* toplevel = gtk_widget_get_toplevel (widget);
@@ -71,7 +72,6 @@ int32_t joinGame(int sock, const char* playerName) {
     
     safeRecv(sock, pack, PSIZE_ACK, 0);
     debug_print("%s\n", "ACK reveived.");
-    printPacket(pack, PSIZE_ACK);
     
     int32_t id;
     if(pack[0] == PTYPE_ACK) {
@@ -87,14 +87,14 @@ int32_t joinGame(int sock, const char* playerName) {
 
 //Argriež spēlētāja id vai kļūdas paziņojumu no joinGame() vai:
 //-4: ja neizdevās savienoties ar serveri
-int try_connect(in_addr_t address, uint16_t port, const char* nick) {
+int tryConnect(in_addr_t address, uint16_t port, const char* nick) {
     int sock;
     struct sockaddr_in serverAddress;
     
     /* Create the TCP socket */
     if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
         Die(ERR_SOCKET);
-    }    
+    }
     
     /* Construct the server sockaddr_in structure */
     memset(&serverAddress, 0, sizeof(serverAddress));  /* Clear struct */
@@ -112,7 +112,7 @@ int try_connect(in_addr_t address, uint16_t port, const char* nick) {
     return joinGame(sock, nick);
 }
 
-static void connect_clicked (GtkWidget* widget, gpointer data) {
+static void connectClicked (GtkWidget* widget, gpointer data) {
     InputForm* form = (InputForm*)data;
     
     //Dabū ievadītās vērtības no formas
@@ -124,23 +124,23 @@ static void connect_clicked (GtkWidget* widget, gpointer data) {
     uint16_t port = htons(atoi(portText));
     
     if (address == INADDR_NONE) {
-        //Nav svarīgi, kādu GtkWidget padod show_error funkcijai
-        show_error(ERR_ADDRESS, form->portInput);
+        //Nav svarīgi, kādu GtkWidget padod showError funkcijai
+        showError(ERR_ADDRESS, form->portInput);
         return;
     }
     
     if (strlen(portText) == 0 || port == 0) {
-        show_error(ERR_PORT, form->portInput);
+        showError(ERR_PORT, form->portInput);
         return;
     }
     
     if (strlen(nickText) == 0) {
-        show_error(ERR_NICK_EMPTY, form->portInput);
+        showError(ERR_NICK_EMPTY, form->portInput);
         return;
     }
     
     if (strlen(nickText) > 20) {
-        show_error(ERR_NICK_TOO_LONG, form->portInput);
+        showError(ERR_NICK_TOO_LONG, form->portInput);
         return;
     }
     
@@ -150,30 +150,31 @@ static void connect_clicked (GtkWidget* widget, gpointer data) {
     GdkCursor* cursor = gdk_cursor_new_for_display(display, GDK_WATCH);
     gdk_window_set_cursor(window, cursor);
     
-    int id = try_connect(address, port, nickText);
-    
-    printf("Id from connection: %d\n", id);
+    int id = tryConnect(address, port, nickText);
     
     switch (id) {
         case -1:
-            show_error(ERR_NICK_TAKEN, form->portInput);
+            showError(ERR_NICK_TAKEN, form->portInput);
             break;
             
         case -2:
-            show_error(ERR_SERVER_FULL, form->portInput);
+            showError(ERR_SERVER_FULL, form->portInput);
             break;
             
         case -3:
-            show_error(ERR_CONNECTION, form->portInput);
+            showError(ERR_CONNECTION, form->portInput);
             break;
             
         case -4:
-            show_error(ERR_CONNECTION, form->portInput);
+            showError(ERR_CONNECTION, form->portInput);
             break;
     }
     
     if (id > 0) {
-        show_error("CONNECTED!!!!", form->portInput);
+        gPlayerId = id;
+        gPlayerName = malloc (strlen(nickText) + 1);
+        strcpy(gPlayerName, nickText);
+        showError("CONNECTED!!!!", form->portInput);
     }
     
     //Uzstāda atpakaļ normālo kursoru
@@ -234,14 +235,14 @@ static void activate (GtkApplication *app, gpointer user_data) {
     gtk_grid_attach (GTK_GRID (grid), button, 0, 3, 2, 1);
     g_signal_connect (button,
                       "clicked",
-                      G_CALLBACK (connect_clicked),
+                      G_CALLBACK (connectClicked),
                       userInput);
 
     //Parāda visu
     gtk_widget_show_all (window);
 }
 
-int show_login_form(int argc, char* argv[]) {
+int showLoginForm(int argc, char* argv[]) {
     GtkApplication *app;
     int status;
 
