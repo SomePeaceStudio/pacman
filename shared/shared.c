@@ -23,11 +23,10 @@ void safeSend(int sockfd, const void *buf, size_t len, int flags){
 
 void safeRecv(int sockfd, void *buf, size_t len, int flags){
     int received;
-    if ((received = recv(sockfd, buf, len, flags)) != len) {
-        debug_print("Received: %2d bytes, should be: %d\n", received, (int)len);
+    if ((received = recv(sockfd, buf, len, flags)) < 0 ) {
         Die("Failed to receive bytes");
     }
-    debug_print("Received: %2d bytes\n", received);
+    debug_print("Received: %2d bytes, asked-max: %d\n", received,(int)len);
 }
 
 // ========================================================================= //

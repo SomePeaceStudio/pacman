@@ -64,11 +64,13 @@ void* actionTherad(void *parm){
 };
 
 int main(int argc, char *argv[]) {
-    int sock;
-    struct sockaddr_in gameserver;
+    int sockTCP, sockUDP;
+    struct sockaddr_in gameserver, gameclient;
+    socklen_t clientAdrrLength;
     char packtype;
+    char pack[1024];
 
-    char* pack;
+    //char* pack;
     int packSize;
 
     if (argc != 3) {
@@ -76,40 +78,57 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
 
-    /* Create the TCP socket */
-    if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-      Die("Failed to create socket");
+    // ------- Izveidojam TCP un UDP soketus ------------------------------- //
+    if ((sockTCP = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+      Die(ERR_SOCKET);
+    }
+    if ((sockUDP = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
+      Die(ERR_SOCKET);
     }
 
-    /* Construct the server sockaddr_in structure */
+    // ------- Izveidojam servera adresi ----------------------------------- //
     memset(&gameserver, 0, sizeof(gameserver));       /* Clear struct */
     gameserver.sin_family = AF_INET;                  /* Internet/IP */
     gameserver.sin_addr.s_addr = inet_addr(argv[1]);  /* IP address */
     gameserver.sin_port = htons(atoi(argv[2]));       /* server port */
 
-    /* Establish connection */
-    if (connect(sock,
-                (struct sockaddr *) &gameserver,
-                sizeof(gameserver)) < 0) {
-      Die("Failed to connect to server");
-    }
     
-    playerId = joinGame(sock);
-    // debug_print("Id Has been received and set: %d\n", playerId);
-    waitForStart(sock);
+    // ----------- Savienojas ar serveri - TCP ----------------------------- //
+    if (connect(sockTCP,(struct sockaddr *) &gameserver,
+                sizeof(gameserver)) < 0) {
+      Die(ERR_CONNECT);
+    }
 
-       
-    //Receive stuff from a server
-    pthread_create(&tid, NULL, actionTherad, (void*)(intptr_t) sock);   
+    // ------- Bindojam UDP soketu pie TCP adreses ------------------------- //
+    clientAdrrLength = sizeof(gameclient);
+    getsockname(sockTCP, (struct sockaddr*)&gameclient, &clientAdrrLength);
+    if (bind(sockUDP,(struct sockaddr *)&gameclient,clientAdrrLength)<0){
+        Die(ERR_BIND);        
+    } 
+
+    // ----------- Savienojas ar serveri - UDP ----------------------------- //
+    if (connect(sockUDP,(struct sockaddr *) &gameserver,
+                sizeof(gameserver)) < 0) {
+      Die(ERR_CONNECT);
+    }
+
+    playerId = joinGame(sockTCP);
+    waitForStart(sockTCP);
+
+    // Jauns pavediens UDP pakešu sūtīšanai
+    pthread_create(&tid, NULL, actionTherad, (void*)(intptr_t) sockUDP);   
     
     while(1){
-        packtype = receivePacktype(sock);
+        memset(&pack, 0, 1024);
+        safeRecv(sockUDP,&pack,sizeof(pack),0);
+        packtype = pack[0];
         // Receive MAP
         if( (int)packtype == PTYPE_MAP ){
             debug_print("%s\n", "Getting MAP pack...");
 
             packSize = mapHeight*mapWidth;
-            safeRecv(sock, *MAP, packSize, 0);
+            memcpy(*MAP, &pack[1], packSize);
+            // safeRecv(sockUDP, *MAP, packSize, 0);
             printMap(MAP, mapWidth, mapHeight);
         }
         // Saņem PLAYERS paketi
@@ -123,19 +142,19 @@ int main(int argc, char *argv[]) {
 
             debug_print("%s\n", "Getting PLAYERS pack...");
             // Saņem spēlētāju daudzumu
-            int playerCount;
-            safeRecv(sock, &playerCount, sizeof(playerCount), 0);
+            int32_t playerCount;
+            memcpy(&playerCount, &pack[1],sizeof(playerCount));
             debug_print("Receiving %d players...\n", playerCount);
 
             char playerObjBuffer[OSIZE_PLAYER];
-            for (int i = 0; i < playerCount; ++i){
+            char* current = &pack[5];
+            for (int i = 0; i < playerCount; ++i,current += 14){
                 memset(&playerObjBuffer,0,sizeof(playerObjBuffer));
-                safeRecv(sock, &playerObjBuffer, OSIZE_PLAYER, 0);
+                memcpy(&playerObjBuffer,current, OSIZE_PLAYER);
 
                 // Spēlētāja kordinātes
                 x = *(float*)(playerObjBuffer+4);
                 y = *(float*)(playerObjBuffer+8);
-                // y = (float)playerObjBuffer[8];
 
                 // Priekš pagaidu renderēšanas
                 xfloor = (int)floorf(x);
@@ -159,7 +178,8 @@ int main(int argc, char *argv[]) {
     }
 
     fprintf(stdout, "\n");
-   	close(sock);
+    close(sockTCP);
+   	close(sockUDP);
    	exit(0);
 }
 

@@ -72,7 +72,8 @@
 //Teksti, ko varētu izmantot vairākās vietās
 #define ERR_MALLOC "Failed to allocate memory"
 #define ERR_SOCKET "Failed to create socket"
-#define ERR_CONNECT "Failed to connect to server"
+#define ERR_CONNECT "Failed to connect to socket"
+#define ERR_BIND "Failed to bind socket"
 
 // ========================== STRUKTŪRAS =================================== //
 
@@ -86,6 +87,11 @@ typedef struct {
     char mdir;      // Kurstības virziens (move direction) glabā DIR_.. vērtību
     char state;      // PLSTATE_
 } object_t;
+
+typedef struct {
+    int tcp;
+    int udp;
+} sockets_t;
 
 // ========================== PROTOTIPI ==================================== //
 
