@@ -132,7 +132,13 @@ void* handleClient(void *sockets) {
         debug_print("%s\n", "Sending ACK for JOIN");
         pack = allocPack(PSIZE_ACK);
         pack[0] = PTYPE_ACK;
-        memcpy(&pack[1], &playerId, sizeof(playerId));
+
+
+        //Iekopē spēlētāja id baitus paketē
+        itoba(playerId, &pack[1]);
+        printf("about to send ACK id: %d\n", batoi(&pack[1]));
+        printPacket(pack, PSIZE_ACK);
+        
         safeSend(sockTCP, pack, PSIZE_ACK, 0);
         free(pack);
 

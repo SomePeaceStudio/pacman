@@ -102,9 +102,16 @@ char* allocPack(int size);
 char receivePacktype(int sock);
 char** allocateGameMap(int width, int height);
 char* translateType(int type);
+
 // For debugging on server/client
 void printMap(char** map, int width, int height);
 void printMappacPretty(char* mappac, int width, int height);
 void printMappac(char* mappac, int width, int height);
+//Izdrukā paketes saturu kā HEX
+void printPacket(const unsigned char* packet, size_t length);
+
+//"Byte Array to Integer" un "Integer to Byte Array"
+int32_t batoi (const unsigned char bytes[4]);
+void itoba (int32_t integer, unsigned char buffer[4]);
 
 #endif //SHARED_H

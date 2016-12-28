@@ -215,7 +215,7 @@ int joinGame(int sock){
     debug_print("%s\n", "ACK reveived.");
 
     if(pack[0] == PTYPE_ACK){
-        int id = (int)pack[1];
+        int32_t id = batoi(&pack[1]);
         free(pack);
         debug_print("Received Id: %d\n", id);
         if(id > 0){
