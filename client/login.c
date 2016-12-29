@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <stdbool.h>
 
 #include "../shared/shared.h"
 #include "login.h"
@@ -24,17 +25,15 @@ typedef struct {
     GtkWidget* addressInput;
     GtkWidget* portInput;
     GtkWidget* nickInput;
+    GtkWindow* window;
 } InputForm;
 
+//Nosaka, vai ir izdevies pieslēgties kādai spēlei, vai ne
+bool gLoggedIn = false;
+
 //Parāda kļūdas paziņojumu lietotājam.
-//widget (var būt NULL) nepieciešams, lai noteiktu vecāka logu (GtkWindow)
-void showError(const char* message, GtkWidget* widget) {
-    //Dabū window objektu
-    GtkWindow* window = NULL;
-    GtkWidget* toplevel = gtk_widget_get_toplevel (widget);
-    if (gtk_widget_is_toplevel (toplevel))
-        window = GTK_WINDOW(toplevel);
-    
+//widget (var būt NULL): lai noteiktu vecāka logu (GtkWindow)
+void showError(const char* message, GtkWindow* window) {
     //Izveido un parāda dialogu
     GtkWidget* dialog = gtk_message_dialog_new(
         window,             //Dialoga vecāks (logs)
@@ -46,6 +45,7 @@ void showError(const char* message, GtkWidget* widget) {
     
     //Parāda dialogu
     gtk_dialog_run (GTK_DIALOG (dialog));
+    //Šo vajag, lai dialogs pazustu pēc "Close" nospiešanas
     gtk_widget_destroy (dialog);
 }
 
@@ -112,10 +112,11 @@ int tryConnect(in_addr_t address, uint16_t port, const char* nick) {
     return joinGame(sock, nick);
 }
 
+//Callback funkcija, kad tiek nospiesta poga "Connect"
 static void connectClicked (GtkWidget* widget, gpointer data) {
     InputForm* form = (InputForm*)data;
-    
-    //Dabū ievadītās vērtības no formas
+    // 
+    // //Dabū ievadītās vērtības no formas
     const char* addressText = gtk_entry_get_text(GTK_ENTRY(form->addressInput));
     const char* portText = gtk_entry_get_text(GTK_ENTRY(form->portInput));
     const char* nickText = gtk_entry_get_text(GTK_ENTRY(form->nickInput));
@@ -125,22 +126,22 @@ static void connectClicked (GtkWidget* widget, gpointer data) {
     
     if (address == INADDR_NONE) {
         //Nav svarīgi, kādu GtkWidget padod showError funkcijai
-        showError(ERR_ADDRESS, form->portInput);
+        showError(ERR_ADDRESS, form->window);
         return;
     }
     
     if (strlen(portText) == 0 || port == 0) {
-        showError(ERR_PORT, form->portInput);
+        showError(ERR_PORT, form->window);
         return;
     }
     
     if (strlen(nickText) == 0) {
-        showError(ERR_NICK_EMPTY, form->portInput);
+        showError(ERR_NICK_EMPTY, form->window);
         return;
     }
     
     if (strlen(nickText) > 20) {
-        showError(ERR_NICK_TOO_LONG, form->portInput);
+        showError(ERR_NICK_TOO_LONG, form->window);
         return;
     }
     
@@ -150,31 +151,37 @@ static void connectClicked (GtkWidget* widget, gpointer data) {
     GdkCursor* cursor = gdk_cursor_new_for_display(display, GDK_WATCH);
     gdk_window_set_cursor(window, cursor);
     
+    //Mēģģina pieslēgties kādai spēlei un apstrādā rezultātu
     int id = tryConnect(address, port, nickText);
-    
     switch (id) {
         case -1:
-            showError(ERR_NICK_TAKEN, form->portInput);
+            showError(ERR_NICK_TAKEN, form->window);
             break;
             
         case -2:
-            showError(ERR_SERVER_FULL, form->portInput);
+            showError(ERR_SERVER_FULL, form->window);
             break;
             
         case -3:
-            showError(ERR_CONNECTION, form->portInput);
+            showError(ERR_CONNECTION, form->window);
             break;
             
         case -4:
-            showError(ERR_CONNECTION, form->portInput);
+            showError(ERR_CONNECTION, form->window);
             break;
     }
     
+    //Izdevās pieslēgties
     if (id > 0) {
+        //Uzstādam globālos mainīgos
         gPlayerId = id;
         gPlayerName = malloc (strlen(nickText) + 1);
         strcpy(gPlayerName, nickText);
-        showError("CONNECTED!!!!", form->portInput);
+        gLoggedIn = true;
+        
+        //Aizver pieslēgšanās logu un izit no gtk_main loop
+        gtk_widget_destroy(GTK_WIDGET(form->window));
+        gtk_main_quit();
     }
     
     //Uzstāda atpakaļ normālo kursoru
@@ -182,8 +189,11 @@ static void connectClicked (GtkWidget* widget, gpointer data) {
     gdk_window_set_cursor(window, cursor);
 }
 
+static void closeWindowClicked(GtkWidget* widget, gpointer data) {
+    gtk_main_quit();
+}
 
-static void activate (GtkApplication *app, gpointer user_data) {
+bool showLoginForm(int* argc, char** argv[]) {
     GtkWidget* window;
     GtkWidget* grid;
     GtkWidget* addressInput;
@@ -194,8 +204,10 @@ static void activate (GtkApplication *app, gpointer user_data) {
     GtkWidget* nickLabel;
     GtkWidget* button;
 
+    gtk_init(argc, argv);
+
     //Izveido jaunu logu un uzstāda nosaukumu
-    window = gtk_application_window_new (app);
+    window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title (GTK_WINDOW (window), "Connect to server");
     gtk_container_set_border_width (GTK_CONTAINER (window), 10);
 
@@ -208,18 +220,27 @@ static void activate (GtkApplication *app, gpointer user_data) {
     addressInput = gtk_entry_new();
     gtk_grid_attach(GTK_GRID(grid), addressLabel, 0, 0, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), addressInput, 1, 0, 1, 1);
+    #if DEBUG
+    gtk_entry_set_text(GTK_ENTRY(addressInput), "127.0.0.1");
+    #endif
 
     //Uzstāda porta lauku
     portLabel = gtk_label_new("Port:");
     portInput = gtk_entry_new();
     gtk_grid_attach(GTK_GRID(grid), portLabel, 0, 1, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), portInput, 1, 1, 1, 1);
+    #if DEBUG
+    gtk_entry_set_text(GTK_ENTRY(portInput), "90");
+    #endif
     
     //Uzstāda nika ievadlauku
     nickLabel = gtk_label_new("Nick:");
     nickInput = gtk_entry_new();
     gtk_grid_attach(GTK_GRID(grid), nickLabel, 0, 2, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), nickInput, 1, 2, 1, 1);
+    #if DEBUG
+    gtk_entry_set_text(GTK_ENTRY(nickInput), "user");
+    #endif
     
     //Izveido ivaddatu struktūru, ko padot callback funkcijai
     InputForm* userInput = malloc(sizeof(InputForm));
@@ -229,27 +250,28 @@ static void activate (GtkApplication *app, gpointer user_data) {
     userInput->addressInput = addressInput;
     userInput->portInput = portInput;
     userInput->nickInput = nickInput;
+    userInput->window = GTK_WINDOW(window);
     
     //Uzstāda pogu un tās callback funkciju
     button = gtk_button_new_with_label ("Connect");
     gtk_grid_attach (GTK_GRID (grid), button, 0, 3, 2, 1);
-    g_signal_connect (button,
-                      "clicked",
-                      G_CALLBACK (connectClicked),
-                      userInput);
+    g_signal_connect (
+        button,
+        "clicked",
+        G_CALLBACK (connectClicked),
+        userInput
+    );
+    
+    g_signal_connect(
+        window,
+        "delete_event",
+        G_CALLBACK(closeWindowClicked),
+        NULL
+    );
 
-    //Parāda visu
     gtk_widget_show_all (window);
-}
-
-int showLoginForm(int argc, char* argv[]) {
-    GtkApplication *app;
-    int status;
-
-    app = gtk_application_new ("lv.lsp.pacman", G_APPLICATION_FLAGS_NONE);
-    g_signal_connect (app, "activate", G_CALLBACK (activate), NULL);
-    status = g_application_run (G_APPLICATION (app), argc, argv);
-    g_object_unref (app);
-
-    return status;
+    
+    gtk_main();
+    
+    return gLoggedIn;
 }

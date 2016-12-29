@@ -5,18 +5,23 @@ CC=gcc
 #-lm: lai varētu izmantot math.h	
 CFLAGS=-pthread -lm
 
+#Bibliotēkas, ko izmanto klients
+LIBS_CLIENT=`pkg-config --libs gtk+-3.0` -lSDL2
+#Kompilatora opcijas priekš klienta
+CFLAGS_CLIENT=`pkg-config --cflags gtk+-3.0`
+
 #Izpildāmo failu nosaukumi
 BIN_CLIENT=bin/client
 BIN_CLIENT_GUI=bin/client_gui
 BIN_SERVER=bin/server
 
-all: mkdir client server 
+all: mkdir server client client_gui
 
 client: client/client.c shared/shared.h mkdir
 	$(CC) client/client.c shared/shared.c $(CFLAGS) -o $(BIN_CLIENT)  
 
-client_gui: client/main.c client/login.h client/globals.h mkdir
-	$(CC) `pkg-config --cflags gtk+-3.0` client/main.c client/login.c client/globals.c shared/shared.c -o $(BIN_CLIENT_GUI) `pkg-config --libs gtk+-3.0`
+client_gui: client/main.c client/login.h client/mainWindow.h client/globals.h mkdir
+	$(CC) $(CFLAGS_CLIENT) client/main.c client/login.c client/mainWindow.c client/globals.c shared/shared.c -o $(BIN_CLIENT_GUI) $(LIBS_CLIENT)
 
 server: server/server.c shared/shared.h shared/threads.h mkdir
 	$(CC) server/server.c shared/shared.c shared/threads.c $(CFLAGS) -o $(BIN_SERVER) 

@@ -1,2 +1,9 @@
+#ifndef LOGIN_H
+#define LOGIN_H
+
+#include <stdbool.h>
+
 //Parāda pieslēgšanās logu
-int showLoginForm(int argc, char* argv[]);
+bool showLoginForm(int* argc, char** argv[]);
+
+#endif //LOGIN_H
