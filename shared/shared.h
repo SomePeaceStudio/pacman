@@ -72,26 +72,39 @@
 //Teksti, ko varētu izmantot vairākās vietās
 #define ERR_MALLOC "Failed to allocate memory"
 #define ERR_SOCKET "Failed to create socket"
-#define ERR_CONNECT "Failed to connect to server"
+#define ERR_CONNECT "Failed to connect to socket"
+#define ERR_BIND "Failed to bind socket"
 
 // ========================== STRUKTŪRAS =================================== //
 
 typedef struct {
-    char type;      // PLTYPE_ pacman vai ghost
-    int id;         // Spēlētāja id
-    char name[21];  // Spēlētāja vārds
-    int points;     // Spēlētāja punkti (pacman) / kills (ghost) 
+    char type;          // PLTYPE_ pacman vai ghost
+    int id;             // Spēlētāja id
+    char name[21];      // Spēlētāja vārds
+    int points;         // Spēlētāja punkti (pacman) / kills (ghost) 
     float x;
     float y;
-    char mdir;      // Kurstības virziens (move direction) glabā DIR_.. vērtību
-    char state;      // PLSTATE_
+    char mdir;          // Kurstības virziens (move direction) glabā DIR_.. vērtību
+    char state;         // PLSTATE_
+    int8_t disconnected;// Globālais mainīgais, lai konstatētu, kad spēlētājs
+                        // ir atvienojies no servera
 } object_t;
+
+typedef struct {
+    int tcp;
+    int udp;
+} sockets_t;
+
+typedef struct {
+    int socket;
+    int32_t id;
+} action_thread_para_t;
 
 // ========================== PROTOTIPI ==================================== //
 
 void Die(char *mess);
 void safeSend(int sockfd, const void *buf, size_t len, int flags);
-void safeRecv(int sockfd, void *buf, size_t len, int flags);
+int safeRecv(int sockfd, void *buf, size_t len, int flags);
 char* allocPack(int size);
 char receivePacktype(int sock);
 char** allocateGameMap(int width, int height);
