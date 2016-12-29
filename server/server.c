@@ -44,13 +44,13 @@ objectNode_t *createObjectNode(object_t* gameObj);
 void deleteObjectWithId(objectNode_t **start, int id);
 int deleteObjectNode(objectNode_t **start, objectNode_t *node);
 void printPlayerList(objectNode_t *start);
-object_t* getObject(objectNode_t *start, int id);
+object_t* getPlayer(objectNode_t *start, int id);
 
 void sendStateUpdate(int sock);
 void sendMapUpdate(int sock);
 void sendPlayersState(int sock);
 void sendStart(int sock, int32_t playerId);
-void handleJoin(int sock, int32_t* playerId, char* playerName);
+void handleJoin(int sock, int32_t playerId);
 
 void getNewMap(char* filename);
 void initNewPlayer(int id, int type, char *name);
@@ -58,7 +58,9 @@ void setSpawnPoint(float *x, float *y);
 void updateState();
 void resetGame();
 void resetPlayers();
-int isGameEnd(); // Atrgriež 1, ja ir 0, ja nav
+void setPlayerDisconnected(int32_t playerId);  
+
+int isGameEnd();
 int isPointsLeft();
 int isAnyPacmanLive();
 
@@ -96,33 +98,36 @@ void* mainGameLoop(){
 // ========================================================================= //
 
 void* actionThread(void *parm){
-    int sock = (int)(intptr_t)parm;
+    int sock = ((action_thread_para_t*)parm)->socket;
+    int32_t playerId = ((action_thread_para_t*)parm)->id;
     char pack[1024];
-    char packtype;
     object_t *player;
     
     while(1){
         memset(&pack, 0, 1024);
-        safeRecv(sock,&pack,sizeof(pack),0);
-        packtype = pack[0];
+        if(safeRecv(sock, &pack, sizeof(pack), 0) < 0){
+            // Ja neizdevās nolasīt datus no soketa,
+            // tiek pieņemts, ka spēlētājs ir atvienojies
+            setPlayerDisconnected(playerId);
+            return 0;
+        };
 
-        if((int)packtype == PTYPE_MOVE){
-            //safeRecv(sock, pack, PSIZE_MOVE-1, 0);
-            int32_t id = *(int32_t*)(pack+1);
+        if((int)pack[0] == PTYPE_MOVE){
+            int32_t id = *(int32_t*)(pack+1);//batoi(&pack[1]);//*(int32_t*)(pack+1);
             char mdir = *(pack+5);
             debug_print("%s\n", "Done receiving!");
             debug_print("Id: %d\n", id);
             debug_print("mdir: %d\n", mdir);
 
-            player = getObject(STATE, id);
+            player = getPlayer(STATE, id);
             if(player!=0){
                 player->mdir = mdir;
                 continue;
             }
             debug_print("Could not find player to move, id: %d\n" , id);
         }else{
-            //TODO: Do something.
-            break;
+            debug_print("Received unkown type packet in UDP loop: %d\n", pack[0]);
+            continue;
         }
     }
     debug_print("%s\n", "Exiting actionThread...");
@@ -131,16 +136,20 @@ void* actionThread(void *parm){
 void* handleClient(void *sockets) {
     int sockTCP = ((sockets_t*)sockets)->tcp;   // TCP sokets priekš 
                                                 // JOIN,ACK,START,END un QUIT paketēm
-    int sockUDP = ((sockets_t*)sockets)->udp;;  // UDP sokets visu pārējo pakešu apstrādei
-    pthread_t* actionThreadId; // Pavediens Spēlētāja sūtītām UDP pakešu apstrādei
-    int32_t playerId;   // Spēlētāja ID
-    char playerName[MAX_NICK_SIZE+1]; 
+    int sockUDP = ((sockets_t*)sockets)->udp;   // UDP sokets visu pārējo pakešu apstrādei
+    pthread_t* actionThreadId;      // Pavediens Spēlētāja sūtītām UDP pakešu apstrādei
+    int32_t playerId = getId();     // Spēlētāja ID
+    object_t* player;               // Norāde uz spēlētāju, spēlētāju sarakstā
+    char playerName[MAX_NICK_SIZE+1];
  
     actionThreadId = getFreeThread(&threadPool);
-    pthread_create(actionThreadId, NULL, actionThread, (void*)(intptr_t) sockUDP); 
+    action_thread_para_t para = {sockUDP,playerId};
+    pthread_create(actionThreadId, NULL, actionThread, (void*)&para); 
 
     //------- JOIN / ACK -------//
-    handleJoin(sockTCP, &playerId, (char *)&playerName);
+    handleJoin(sockTCP, playerId);
+
+    player = getPlayer(STATE,playerId);
 
     //------- START -------//
     sendStart(sockTCP, playerId);
@@ -148,25 +157,29 @@ void* handleClient(void *sockets) {
 
     // Main GAME loop
     while(1){
-        // Send Map Update 
-        sendMapUpdate(sockUDP);
-
-        // Send Players
-        sendPlayersState(sockUDP);
-        sleep(1);
-
+        // Pārbauda vai spēlētājs ir atvienojies
+        if(player->disconnected){
+            break;
+        }
+        // Pārbauda vai spēle ir beigusies
         if(END){
             while(END){}
-
+            // Atkārtoti sūta start, lai klients var inicializēt karti
+            sendStart(sockTCP, playerId);
         }
+
+        // Sūta MAP paketi
+        sendMapUpdate(sockUDP);
+
+        // Sūta PLAYERS paketi
+        sendPlayersState(sockUDP);
+        sleep(1);
     }
 
+    debug_print("%s\n", "Client Disconnected, closing threads...");
     close(sockTCP);
     close(sockUDP);
-    debug_print("%s\n", "Closed UDP&TCP sockets!");
-    debug_print("%s\n", "Updating state..");
     deleteObjectWithId(&STATE, playerId);
-    printPlayerList(STATE);
     // Atbrīvo pavedienu kurš atbild par gājienu apstrādi
     freeThread(&threadPool,*actionThreadId);
     // Atbrīvo pats savu pavedienu
@@ -184,13 +197,13 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "USAGE: gameserver <port> <mapfile>\n");
       exit(1);
     }
-    // --------- Izveidojam TCP un UDP soketus ----------------------------- //
+    // --------- Izveidojam TCP soketu ------------------------------------- //
     if ((serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
       Die("Failed to create socket");
     }
-    if ((clientSock.udp = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-        Die(ERR_SOCKET);
-    };
+    // if ((clientSock.udp = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+    //     Die(ERR_SOCKET);
+    // };
     
     // --------- Izveidojam servera adreses struktūru ---------------------- //
     memset(&gameserver, 0, sizeof(gameserver));       /* Clear struct */
@@ -198,23 +211,16 @@ int main(int argc, char *argv[]) {
     gameserver.sin_addr.s_addr = htonl(INADDR_ANY);   /* Incoming addr */
     gameserver.sin_port = htons(atoi(argv[1]));       /* server port */
 
-    // --------- Bindojam TCP un UDP soketus pie servera adreses ----------- //
+    // --------- Bindojam TCP soketus pie servera adreses ------------------ //
     if (bind(serversock, (struct sockaddr *) &gameserver,
                                sizeof(gameserver)) < 0) {
         Die("Failed to bind the server socket");
     }
-    if (bind(clientSock.udp, (struct sockaddr *)&gameserver, sizeof(gameserver))<0){
-        Die(ERR_BIND);
-    };
 
     // ---------------------- Inicializē Karti ----------------------------- //
-    s(argv[2]);
 
-    FILE *mapFile;
-    if((mapFile = fopen(argv[2], "r")) == NULL){
-        Die("Could not open map file");
-        return 1;
-    }    
+    getNewMap(argv[2]);
+
     // --------------------------------------------------------------------- //
 
     // Inicializē pavedienu kopu, sāk spēles galveno pavedienu
@@ -234,14 +240,29 @@ int main(int argc, char *argv[]) {
         if ((clientSock.tcp =
            accept(serversock, (struct sockaddr *) &gameclient,
                   &clientlen)) < 0) {
-            Die("Failed to accept client connection");
+            debug_print("%s\n", ERR_CONNECT);
+            continue;            
         }
         fprintf(stdout, "Client connected: %s\n", 
                     inet_ntoa(gameclient.sin_addr));
 
-        // Izveidojam savienojumu caur UDP
+        // Izveidojam UDP soketu
+        if ((clientSock.udp = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+            debug_print("%s\n", ERR_SOCKET);
+            close(clientSock.tcp);
+            continue;
+        };
+        if (bind(clientSock.udp, (struct sockaddr *)&gameserver, sizeof(gameserver))<0){
+            debug_print("%s\n", ERR_BIND);
+            close(clientSock.tcp);
+            close(clientSock.udp);
+            continue;
+        };
         if (connect(clientSock.udp,(struct sockaddr *) &gameclient, clientlen) < 0) {
-            Die(ERR_CONNECT);
+            debug_print("%s\n", ERR_CONNECT);
+            close(clientSock.tcp);
+            close(clientSock.udp);
+            continue;
         }
 
         // Apstrādājam klientu atsevišķā pavedienā
@@ -255,11 +276,11 @@ int main(int argc, char *argv[]) {
 void updateState(){
     float *x, *y;
     int mdir;
-    int canMove;        // Vai gājienu var izdarīt (vai priekšā nav siena);
-    float speed = 1;    // Vina gājiena lielums vienā game-tick
-    float xSpeed, ySpeed; // Spēlētāja x un y ātrums;
-    char *nextMapTile;  // Kartes lauciņš uz kuru spēlētājs grasās pārvietoties
-    float tileSize = 1; // vienas rūtiņas platums
+    int canMove;            // Vai gājienu var izdarīt (vai priekšā nav siena)
+    float speed = 1;        // Vina gājiena lielums vienā game-tick
+    float xSpeed, ySpeed;   // Spēlētāja x un y ātrums;
+    char *nextMapTile;      // Kartes lauciņš uz kuru spēlētājs pārvietosies
+    float tileSize = 1;     // vienas rūtiņas platums
 
 
     // Veicam visas kustības visiem spēlētājiem atkarībā no to kursības virziena
@@ -344,21 +365,21 @@ void updateState(){
 
 // ========================================================================= //
 
-void handleJoin(int sock, int32_t* playerId, char *playerName){
+void handleJoin(int sock, int32_t playerId){
     int packSize;
     char pack[PSIZE_JOIN];
     safeRecv(sock, &pack, PSIZE_JOIN,0);
+    char playerName[MAX_NICK_SIZE+1];
 
     if((int)pack[0] == PTYPE_JOIN){
         // Iegūst lietotājvārdu
-        memcpy(playerName, &pack[1],MAX_NICK_SIZE);
+        memcpy(&playerName, &pack[1],MAX_NICK_SIZE);
         playerName[MAX_NICK_SIZE] = '\0';
         debug_print("Received playerName: %s\n", playerName);
 
 
         //TODO: Dinamiski izvēlēties PLTYPE
-        *playerId = getId();
-        initNewPlayer(*playerId, PLTYPE_PACMAN, playerName);
+        initNewPlayer(playerId, PLTYPE_PACMAN, playerName);
 
         // Sūta ACK
         debug_print("%s\n", "Sending ACK for JOIN");
@@ -366,7 +387,7 @@ void handleJoin(int sock, int32_t* playerId, char *playerName){
         pack[0] = PTYPE_ACK;
 
         //Iekopē spēlētāja id baitus paketē
-        itoba(*playerId, &pack[1]);
+        itoba(playerId, &pack[1]);
         printf("About to send ACK, id: %d\n", batoi(&pack[1]));
         printPacket(pack, PSIZE_ACK);
 
@@ -388,8 +409,8 @@ void sendStart(int sock, int32_t playerId){
     pack[0] = 2;
     pack[1] = MAPHEIGHT;
     pack[2] = MAPWIDTH;
-    pack[3] = getObject(STATE, playerId)->x;
-    pack[4] = getObject(STATE, playerId)->y;
+    pack[3] = getPlayer(STATE, playerId)->x;
+    pack[4] = getPlayer(STATE, playerId)->y;
     safeSend(sock, pack, PSIZE_START, 0);
 }
 
@@ -471,6 +492,7 @@ void initNewPlayer(int id, int type, char *name){
     setSpawnPoint(&newPlayer.x, &newPlayer.y);
     newPlayer.state = PLSTATE_LIVE;
     newPlayer.mdir = DIR_NONE;
+    newPlayer.disconnected = 0;
     // Pievieno sarakstam
     addObjectNodeEnd(&STATE, createObjectNode(&newPlayer));
 };
@@ -574,7 +596,7 @@ void printPlayerList(objectNode_t *start){
 
 // ------------------------------------------------------------------------- //
 
-object_t* getObject(objectNode_t *start, int id){
+object_t* getPlayer(objectNode_t *start, int id){
     for(objectNode_t *current = start; current != 0; current = current->next){
         if(current->object.id == id){
             return &(current->object);
@@ -676,3 +698,12 @@ int isAnyPacmanLive(objectNode_t *start){
 }
 
 // ========================================================================= //
+
+void setPlayerDisconnected(int32_t playerId){
+    for(objectNode_t *current = STATE; current != 0; current = current->next){
+        if(current->object.id == playerId){
+            current->object.disconnected = 1;
+            return;
+        }
+    }
+}
