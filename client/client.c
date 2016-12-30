@@ -16,7 +16,7 @@
 char **MAP;
 int mapWidth;
 int mapHeight;
-int playerId;
+int32_t playerId;
 char playerName[MAX_NICK_SIZE+1] = "pacMonster007----END";
 pthread_t  tid;   // Second thread
 
@@ -37,8 +37,8 @@ void* actionTherad(void *parm){
     pack = allocPack(PSIZE_MOVE);
     pack[0] = PTYPE_MOVE;
     debug_print("Setting Id: %d\n", playerId);
-    memcpy(&pack[1], &playerId, sizeof(playerId));
-    debug_print("Id was set: %d\n", *(int*)(pack+1));
+    itoba(playerId, &pack[1]);
+    debug_print("Id was set: %d\n", batoi(&pack[1]));
     while(1){
         char* move;
         fscanf(stdin,"%s", move);

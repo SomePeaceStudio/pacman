@@ -50,7 +50,7 @@ void sendStateUpdate(int sock);
 void sendMapUpdate(int sock);
 void sendPlayersState(int sock);
 void sendStart(int sock, int32_t playerId);
-void handleJoin(int sock, int32_t playerId);
+int handleJoin(int sock, int32_t playerId);
 
 void getNewMap(char* filename);
 void initNewPlayer(int id, int type, char *name);
@@ -113,7 +113,7 @@ void* actionThread(void *parm){
         };
 
         if((int)pack[0] == PTYPE_MOVE){
-            int32_t id = *(int32_t*)(pack+1);//batoi(&pack[1]);//*(int32_t*)(pack+1);
+            int32_t id = batoi(&pack[1]);
             char mdir = *(pack+5);
             debug_print("%s\n", "Done receiving!");
             debug_print("Id: %d\n", id);
@@ -142,12 +142,22 @@ void* handleClient(void *sockets) {
     object_t* player;               // Norāde uz spēlētāju, spēlētāju sarakstā
     char playerName[MAX_NICK_SIZE+1];
  
+    // Izveidoju jaunu pavedienu priekš spēlētāja UDP
+    // sūtīto pakešu apstrādei
     actionThreadId = getFreeThread(&threadPool);
-    action_thread_para_t para = {sockUDP,playerId};
+    action_thread_para_t para = {sockUDP,playerId}; 
     pthread_create(actionThreadId, NULL, actionThread, (void*)&para); 
 
     //------- JOIN / ACK -------//
-    handleJoin(sockTCP, playerId);
+    if(handleJoin(sockTCP, playerId)!=0){
+        // Ja neizdevās saņemt pirmo paketi JOIN,
+        // tad savienojums tiek pārtraukts
+        close(sockTCP);
+        close(sockUDP);
+        freeThread(&threadPool,*actionThreadId);
+        freeThread(&threadPool,pthread_self());
+        return 0;
+    };
 
     player = getPlayer(STATE,playerId);
 
@@ -177,33 +187,28 @@ void* handleClient(void *sockets) {
     }
 
     debug_print("%s\n", "Client Disconnected, closing threads...");
+    deleteObjectWithId(&STATE, playerId);
     close(sockTCP);
     close(sockUDP);
-    deleteObjectWithId(&STATE, playerId);
-    // Atbrīvo pavedienu kurš atbild par gājienu apstrādi
     freeThread(&threadPool,*actionThreadId);
-    // Atbrīvo pats savu pavedienu
     freeThread(&threadPool,pthread_self());
     return 0;
 }
 
 
 int main(int argc, char *argv[]) {
-    int serversock;//, clientsock;
+    int serversock;
     sockets_t clientSock;
     struct sockaddr_in gameserver, gameclient;
 
     if (argc != 3) {
-      fprintf(stderr, "USAGE: gameserver <port> <mapfile>\n");
+      fprintf(stderr, "USAGE: server <port> <mapfile>\n");
       exit(1);
     }
     // --------- Izveidojam TCP soketu ------------------------------------- //
     if ((serversock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
       Die("Failed to create socket");
     }
-    // if ((clientSock.udp = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-    //     Die(ERR_SOCKET);
-    // };
     
     // --------- Izveidojam servera adreses struktūru ---------------------- //
     memset(&gameserver, 0, sizeof(gameserver));       /* Clear struct */
@@ -252,8 +257,11 @@ int main(int argc, char *argv[]) {
             close(clientSock.tcp);
             continue;
         };
+
+        int optval = 1;
+        setsockopt(clientSock.udp, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
         if (bind(clientSock.udp, (struct sockaddr *)&gameserver, sizeof(gameserver))<0){
-            debug_print("%s\n", ERR_BIND);
+            perror(ERR_BIND);
             close(clientSock.tcp);
             close(clientSock.udp);
             continue;
@@ -265,9 +273,11 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
+        sockets_t tmp;
+        memcpy(&tmp, &clientSock, sizeof(sockets_t));
         // Apstrādājam klientu atsevišķā pavedienā
         debug_print("Free Theads In Pool: %d\n", countFreeThreads(&threadPool));
-        pthread_create( getFreeThread(&threadPool) , NULL, handleClient, (void*)&clientSock);
+        pthread_create( getFreeThread(&threadPool) , NULL, handleClient, (void*)&tmp);
     }
 }
 
@@ -365,10 +375,14 @@ void updateState(){
 
 // ========================================================================= //
 
-void handleJoin(int sock, int32_t playerId){
+// Atgriež 1, ja ir notikusi ķļūda;
+// Atgriež 0, ja izdevās pievienot klientu;
+int handleJoin(int sock, int32_t playerId){
     int packSize;
     char pack[PSIZE_JOIN];
-    safeRecv(sock, &pack, PSIZE_JOIN,0);
+    if(safeRecv(sock, &pack, PSIZE_JOIN,0)<0){
+        return 1;
+    };
     char playerName[MAX_NICK_SIZE+1];
 
     if((int)pack[0] == PTYPE_JOIN){
@@ -382,21 +396,23 @@ void handleJoin(int sock, int32_t playerId){
         initNewPlayer(playerId, PLTYPE_PACMAN, playerName);
 
         // Sūta ACK
-        debug_print("%s\n", "Sending ACK for JOIN");
         bzero(&pack, sizeof(pack));
         pack[0] = PTYPE_ACK;
 
-        //Iekopē spēlētāja id baitus paketē
+        // Iekopē spēlētāja id baitus paketē
         itoba(playerId, &pack[1]);
         printf("About to send ACK, id: %d\n", batoi(&pack[1]));
-        printPacket(pack, PSIZE_ACK);
 
-        safeSend(sock, &pack, PSIZE_ACK, 0);
+        if(safeSend(sock, &pack, PSIZE_ACK, 0) < 0){
+            debug_print("%s\n", "Could not send ACK packet");
+            return 1;
+        }
 
     }else{
-        //TODO: do something;
-        debug_print("%s\n", "Did not receive JOIN");
+        debug_print("%s\n", "Did not receive JOIN packet");
+        return 1;
     }
+    return 0;
 }
 
 // ========================================================================= //
@@ -411,7 +427,12 @@ void sendStart(int sock, int32_t playerId){
     pack[2] = MAPWIDTH;
     pack[3] = getPlayer(STATE, playerId)->x;
     pack[4] = getPlayer(STATE, playerId)->y;
-    safeSend(sock, pack, PSIZE_START, 0);
+
+    // Ja neizdodas nosūtīt kartes izmērus tiek pieņemts,
+    // ka klients ir atvienojies
+    if(safeSend(sock, pack, PSIZE_START, 0)<0){
+        setPlayerDisconnected(playerId);
+    }
 }
 
 // ========================================================================= //
@@ -707,3 +728,5 @@ void setPlayerDisconnected(int32_t playerId){
         }
     }
 }
+
+// ========================================================================= //

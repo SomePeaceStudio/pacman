@@ -13,10 +13,13 @@ void Die(char *mess) { perror(mess); exit(1); }
 
 // ========================================================================= //
 
-void safeSend(int sockfd, const void *buf, size_t len, int flags){
-    if (send(sockfd, buf, len, flags) != len) {
-        Die("Mismatch in number of sent bytes");
+int safeSend(int sockfd, const void *buf, size_t len, int flags){
+    int sent;
+    if ((sent = send(sockfd, buf, len, flags)) != len) {
+        debug_print("%s\n","Error sending bytes");
+        return sent;
     }
+    return sent;
 }
 
 // ========================================================================= //
