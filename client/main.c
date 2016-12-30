@@ -1,6 +1,8 @@
 #include <stdio.h>
+#include <stdbool.h>
 
 #include "login.h"
+#include "mainWindow.h"
 #include "globals.h"
 
 void clean() {
@@ -10,12 +12,12 @@ void clean() {
 int main(int argc, char* argv[]) {
     
     //Pagaidām parāda tikai pieslēgšanās logu
-    int loginResult = showLoginForm(argc, argv);
+    bool loggedIn = showLoginForm(&argc, &argv);
     
-    printf("Player name: %s\n", gPlayerName);
-    printf("Player id: %d\n", gPlayerId);
+    if (loggedIn) {
+        show_main_window();
+    }
     
     clean();
-    
-    return loginResult;
+    return 0;
 }
