@@ -27,6 +27,7 @@ int joinGame(int sock);
 char receivePacktype(int sock);
 void waitForStart(int sock);
 void* actionTherad(void *parm);   /* Thread function to client actions */
+int sendQuit(int sock);
 
 // ========================================================================= //
 
@@ -34,29 +35,31 @@ void* actionTherad(void *parm){
     int sock = (int)(intptr_t)parm;
     printf("%s\n", "a: <- left, w: up, d: -> right, s: down");
     char* pack;
+
     pack = allocPack(PSIZE_MOVE);
-    pack[0] = PTYPE_MOVE;
     debug_print("Setting Id: %d\n", playerId);
+    pack[0] = PTYPE_MOVE;
     itoba(playerId, &pack[1]);
     debug_print("Id was set: %d\n", batoi(&pack[1]));
     while(1){
-        char* move;
-        fscanf(stdin,"%s", move);
-        // Get vector
-        if(move[0] == 'a'){
+        char* command;
+        fscanf(stdin,"%s", command);
+        
+        // Pārtulko par virzienu
+        if(command[0] == 'a'){
             pack[5] = DIR_LEFT;
-        }else if( move[0] == 'w' ){
+        }else if( command[0] == 'w' ){
             pack[5] = DIR_UP;
-        }else if( move[0] == 'd' ){
+        }else if( command[0] == 'd' ){
             pack[5] = DIR_RIGHT;
-        }else if( move[0] == 's' ){
+        }else if( command[0] == 's' ){
             pack[5] = DIR_DOWN;
         }else{
             continue;
         }
         /* Send move */
         safeSend(sock, pack, PSIZE_MOVE, 0);
-        printf("You'r move was: %c\n", move[0]);
+        printf("You'r move was: %c\n", command[0]);
     }
     if(pack!=0){
         free(pack);
@@ -271,6 +274,19 @@ void waitForStart(int sock){
     if(pack != 0){
         free(pack);
     }
+}
+
+// ========================================================================= //
+
+int sendQuit(int sock){
+    char pack[PSIZE_QUIT];
+    pack[0] = PTYPE_QUIT;
+    itoba(playerId, &pack[0]);
+    if(safeSend(sock, pack, PSIZE_QUIT, 0) < 0){
+        return 1;
+    };
+    debug_print("%s\n", "Quit was sent!");
+    return 0;
 }
 
 // ========================================================================= //

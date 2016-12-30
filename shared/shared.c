@@ -16,7 +16,7 @@ void Die(char *mess) { perror(mess); exit(1); }
 int safeSend(int sockfd, const void *buf, size_t len, int flags){
     int sent;
     if ((sent = send(sockfd, buf, len, flags)) != len) {
-        debug_print("%s\n","Error sending bytes");
+        debug_print("%s\n",ERR_SEND);
         return sent;
     }
     return sent;

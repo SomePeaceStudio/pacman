@@ -7,7 +7,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <math.h>
-
+#include <sys/ioctl.h>
 
 // Shared functions for client and server
 #include "../shared/shared.h"
@@ -31,7 +31,7 @@ char** MAP;
 int stateObjCount = 0;
 int MAPHEIGHT;
 int MAPWIDTH;
-volatile short END = 1;     // Nosaka vai spēle ir beigusies, pēles laikā END=0
+volatile short END = 1;      // Nosaka vai spēle ir beigusies, pēles laikā END=0
 pthread_t  mainGameThread;   // Second thread
 thread_pool_t threadPool;
 
@@ -51,6 +51,8 @@ void sendMapUpdate(int sock);
 void sendPlayersState(int sock);
 void sendStart(int sock, int32_t playerId);
 int handleJoin(int sock, int32_t playerId);
+int readQuitPacket(int sock, int32_t playerId);
+
 
 void getNewMap(char* filename);
 void initNewPlayer(int id, int type, char *name);
@@ -167,6 +169,12 @@ void* handleClient(void *sockets) {
 
     // Main GAME loop
     while(1){
+
+        // Pārbauda vai ir nolasīta QUIT pakete
+        if(readQuitPacket(sockTCP, playerId) == 0){
+            break;
+        };
+
         // Pārbauda vai spēlētājs ir atvienojies
         if(player->disconnected){
             break;
@@ -727,6 +735,29 @@ void setPlayerDisconnected(int32_t playerId){
             return;
         }
     }
+}
+
+// ========================================================================= //
+
+int readQuitPacket(int sock, int32_t playerId){
+    char pack[PSIZE_QUIT];
+    if(recv(sock, &pack, PSIZE_QUIT, MSG_DONTWAIT) < 0){
+        perror(ERR_RECV);
+        return 1;
+    }
+    if((int)pack[0] == PTYPE_QUIT){
+        // Pārbauda vai spēlētājs nemēģina atvienot kādu citu spēlētāju
+        if(playerId == batoi(&pack[1])){
+            debug_print("Client with Id: %d disconnecting..\n", batoi(&pack[1]));
+            return 0;
+        }
+        return 1;
+    }else{
+        // Ja pakete nav QUIT pakete, tad tā visticamāk nav valida
+        // un tā tiek ignorēta
+        return 1;
+    }
+
 }
 
 // ========================================================================= //
