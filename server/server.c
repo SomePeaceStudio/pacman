@@ -50,6 +50,7 @@ void sendStateUpdate(int sock);
 void sendMapUpdate(int sock);
 void sendPlayersState(int sock);
 void sendStart(int sock, int32_t playerId);
+void sendScores(int sock);
 int handleJoin(int sock, int32_t playerId);
 int readQuitPacket(int sock, int32_t playerId);
 
@@ -191,6 +192,10 @@ void* handleClient(void *sockets) {
 
         // Sūta PLAYERS paketi
         sendPlayersState(sockUDP);
+
+        // Sūta Spēlētāju punktus
+        sendScores(sockUDP);
+
         sleep(1);
     }
 
@@ -452,9 +457,9 @@ void sendPlayersState(int sock){
     packSize = 1 + 4 + stateObjCount*OSIZE_PLAYER;
     pack = allocPack(packSize);
     pack[0] = PTYPE_PLAYERS;
-    // pack[1] = stateObjCount;
-    *(int*)(pack+1) = stateObjCount;
+    itoba(stateObjCount, &pack[1]);
 
+    //TODO: pārraktīt int/float sūtīšanu uz endianes safe variantu
     char* currObj = &pack[5]; // Norāda uz sākumvietu, kur rakstīt objektu
     for(objectNode_t *current = STATE; current != 0; current = current->next){
         *(int*)currObj  = current->object.id;
@@ -466,12 +471,35 @@ void sendPlayersState(int sock){
     }
 
     // Send MAP packet
-    debug_print("Sending %d PLAYERS... packSize: %d\n", *(int*)(pack+1), packSize);
+    debug_print("Sending %d PLAYERS... packSize: %d\n", batoi(&pack[1]), packSize);
     printPlayerList(STATE);
     safeSend(sock, pack, packSize, 0);
     if(pack != 0){
         free(pack);
     }
+}
+
+// ========================================================================= //
+
+void sendScores(int sock){
+    char pack[MAX_PACK_SIZE];
+    int packSize = ENUM_SIZE+INT_SIZE+stateObjCount*(INT_SIZE*2);
+    if( MAX_PACK_SIZE < packSize ){
+        debug_print("Scores pack size is too large: %d max: %d\n",\
+            packSize,MAX_PACK_SIZE);
+    }
+
+    pack[0] = PTYPE_SCORE;
+    itoba(stateObjCount, &pack[1]);
+
+    char* currObj = &pack[5]; // Norāda uz sākumvietu, kur rakstīt objektu
+    for(objectNode_t *current = STATE; current != 0; current = current->next){
+        itoba(current->object.id, &currObj[0]);
+        itoba(current->object.points, &currObj[4]);
+        currObj += 8;
+    }
+    debug_print("%s\n", "Sending SCORE packet...");
+    safeSend(sock, pack, packSize, 0);
 }
 
 // ========================================================================= //
@@ -762,3 +790,4 @@ int readQuitPacket(int sock, int32_t playerId){
 }
 
 // ========================================================================= //
+

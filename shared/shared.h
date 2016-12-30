@@ -54,6 +54,9 @@
 #define DIR_NONE -1
 
 #define MAX_NICK_SIZE 20
+// Paketes maksimālais izmērs, kad pakete tiek devinēta statiski
+#define MAX_PACK_SIZE 1024
+
 
 // Spēlētāja stāvoklis
 #define PLSTATE_LIVE 0
@@ -79,6 +82,11 @@
 #define ERR_BIND "Failed to bind socket"
 #define ERR_RECV "Failed to receive bytes"
 #define ERR_SEND "Failed to send bytes"
+
+//Vispār pieņemti datu tipu izmēri
+#define ENUM_SIZE 1
+#define INT_SIZE 4
+
 
 // ========================== STRUKTŪRAS =================================== //
 

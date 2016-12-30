@@ -122,21 +122,22 @@ int main(int argc, char *argv[]) {
     pthread_create(&tid, NULL, actionTherad, (void*)(intptr_t) sockUDP);   
     
     while(1){
-        
+
         memset(&pack, 0, 1024);
         safeRecv(sockUDP,&pack,sizeof(pack),0);
-        packtype = pack[0];
+        
         // Receive MAP
-        if( (int)packtype == PTYPE_MAP ){
+        if( (int)pack[0] == PTYPE_MAP ){
             debug_print("%s\n", "Getting MAP pack...");
 
             packSize = mapHeight*mapWidth;
             memcpy(*MAP, &pack[1], packSize);
             // safeRecv(sockUDP, *MAP, packSize, 0);
             printMap(MAP, mapWidth, mapHeight);
+            continue;
         }
         // Saņem PLAYERS paketi
-        if( (int)packtype == PTYPE_PLAYERS ){
+        if( (int)pack[0] == PTYPE_PLAYERS ){
             // Kartes renderēšana
             float x,y;
             int xfloor, yfloor; // Lai atrastu lauciņu uz kartes
@@ -146,8 +147,7 @@ int main(int argc, char *argv[]) {
 
             debug_print("%s\n", "Getting PLAYERS pack...");
             // Saņem spēlētāju daudzumu
-            int32_t playerCount;
-            memcpy(&playerCount, &pack[1],sizeof(playerCount));
+            int32_t playerCount = batoi(&pack[1]);
             debug_print("Receiving %d players...\n", playerCount);
 
             char playerObjBuffer[OSIZE_PLAYER];
@@ -177,6 +177,15 @@ int main(int argc, char *argv[]) {
             }
             printMap(mapBuffer, mapWidth, mapHeight);
             free(mapBuffer); // TODO: Pārbaudīt vai visa atmiņa tiek atbrīvota
+            continue;
+        }
+        if( (int)pack[0] == PTYPE_SCORE ){
+            for(int i = 0; i < batoi(&pack[1]); i++){
+                printf("Id: %d Score: %d\n",batoi(&pack[5+i*(INT_SIZE*2)]),\
+                    batoi(&pack[9+i*(INT_SIZE*2)]));
+                
+            }
+            continue;
         }
    
     }
