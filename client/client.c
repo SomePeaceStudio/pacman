@@ -122,6 +122,7 @@ int main(int argc, char *argv[]) {
     pthread_create(&tid, NULL, actionTherad, (void*)(intptr_t) sockUDP);   
     
     while(1){
+        
         memset(&pack, 0, 1024);
         safeRecv(sockUDP,&pack,sizeof(pack),0);
         packtype = pack[0];
@@ -281,8 +282,8 @@ void waitForStart(int sock){
 int sendQuit(int sock){
     char pack[PSIZE_QUIT];
     pack[0] = PTYPE_QUIT;
-    itoba(playerId, &pack[0]);
-    if(safeSend(sock, pack, PSIZE_QUIT, 0) < 0){
+    itoba(playerId, &pack[1]);
+    if(safeSend(sock, &pack, PSIZE_QUIT, 0) < 0){
         return 1;
     };
     debug_print("%s\n", "Quit was sent!");

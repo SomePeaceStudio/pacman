@@ -742,7 +742,6 @@ void setPlayerDisconnected(int32_t playerId){
 int readQuitPacket(int sock, int32_t playerId){
     char pack[PSIZE_QUIT];
     if(recv(sock, &pack, PSIZE_QUIT, MSG_DONTWAIT) < 0){
-        perror(ERR_RECV);
         return 1;
     }
     if((int)pack[0] == PTYPE_QUIT){
@@ -751,10 +750,12 @@ int readQuitPacket(int sock, int32_t playerId){
             debug_print("Client with Id: %d disconnecting..\n", batoi(&pack[1]));
             return 0;
         }
+        debug_print("Client sent wrong Id: %d in QUIT pack\n", batoi(&pack[1]));
         return 1;
     }else{
         // Ja pakete nav QUIT pakete, tad tā visticamāk nav valida
         // un tā tiek ignorēta
+        debug_print("Received packtype: %d expected: %d\n", (int)pack[0], PTYPE_QUIT);
         return 1;
     }
 
