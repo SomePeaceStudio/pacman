@@ -306,11 +306,17 @@ void updateState(){
     float *x, *y;
     int mdir;
     int canMove;            // Vai gājienu var izdarīt (vai priekšā nav siena)
+    //FIXME: Mainot speed uz mazāku spēlētājs var ieiet sienā
     float speed = 1;        // Vina gājiena lielums vienā game-tick
     float xSpeed, ySpeed;   // Spēlētāja x un y ātrums;
     char *nextMapTile;      // Kartes lauciņš uz kuru spēlētājs pārvietosies
     float tileSize = 1;     // vienas rūtiņas platums
-
+    // NOTE: tiem pagaidām ņemti vērā tikai spēlētāju kolīzijās, ja izmēri tiek
+    // mainīti būs nepieciešams pārrakstīt Spēlētāju/Kartes obj. kolīzijas
+    float pacmanWidth   = 0.9; // < 1 lai spawnojoties uzreiz nesaskartos  
+    float pacmanHeight  = 0.9; 
+    float ghostWidth    = 0.9;   
+    float ghostHeight   = 0.9;  
 
     // Veicam visas kustības visiem spēlētājiem atkarībā no to kursības virziena
     // Apskatām visas kolīzijas ar kartes objektiem
@@ -384,10 +390,67 @@ void updateState(){
                 current->object.points += 10;
             }                   
         }
-        //TODO: Pārbaudīt kolīzijas Pacman/Ghost
         if(canMove){
             *x+=xSpeed;
             *y+=ySpeed; 
+        }
+    }
+    // Pārbaudīt spēlētāju kolīzijas Pacman/Ghost
+    float iWidth, iHeight, jWidth, jHeight;
+    // x1 - kreisās malas viduspunkts
+    // x2 - labās malas viduspunkts
+    // y1 - augšējās malas viduspunkts
+    // y2 - apakšējās malas viduspunkts
+    float ix1,ix2,iy1,iy2,jx1,jx2,jy1,jy2;
+    for(objectNode_t *i = STATE; i != 0; i = i->next){
+        // Iegūstas spēlētāja tipa izmērus
+        if(i->object.type == PLTYPE_PACMAN){
+            iWidth = pacmanWidth;
+            iHeight = pacmanHeight;
+        }else{
+            iWidth = ghostWidth;
+            iHeight = ghostHeight;
+        }
+        ix1 = i->object.x - iWidth/2;
+        ix2 = i->object.x + iWidth/2;
+        iy1 = i->object.y - iHeight/2;
+        iy2 = i->object.y + iHeight/2;
+
+        for(objectNode_t *j = STATE; j != 0; j = j->next){
+            // Ja spēlētāju tipi ir vienādi - nekas nenotiek
+            if(i->object.type == j->object.type || \
+                i->object.id == j->object.id)
+            {
+                break;
+            }
+            // Iegūstas spēlētāja tipa izmērus
+            if(j->object.type == PLTYPE_PACMAN){
+                jWidth = pacmanWidth;
+                jHeight = pacmanHeight;
+            }else{
+                jWidth = ghostWidth;
+                jHeight = ghostHeight;
+            }
+            jx1 = j->object.x - jWidth/2;
+            jx2 = j->object.x + jWidth/2;
+            jy1 = j->object.y - jHeight/2;
+            jy2 = j->object.y + jHeight/2;
+            // Pārbauda vai objekti pārklājas
+            // printf("\n\n%s\n", "Checking Collission");
+            // printf("%f<=%f && %f>=%f && %f<=%f && %f>=%f\n\n",\
+            //     ix1,jx2,ix2,jx1,iy1,jy2,iy2,jy1);
+            if(ix1<=jx2 && ix2>=jx1 && iy1<=jy2 && iy2>=jy1){
+                // Pacman tiek apēsts
+                if(i->object.type == PLTYPE_PACMAN){
+                    i->object.state = PLSTATE_DEAD;
+                    j->object.points +=1;
+                }else{
+                    j->object.state = PLSTATE_DEAD;
+                    i->object.points +=1;
+                }
+            }
+            
+        
         }
     }
 }
@@ -411,8 +474,7 @@ int handleJoin(int sock, int32_t playerId){
         debug_print("Received playerName: %s\n", playerName);
 
         //TODO: Uzlikt MUTEX, lai spēlētāju skaits nenojūk
-        int playerType = getPlayerType();
-        initNewPlayer(playerId, playerType, playerName);
+        initNewPlayer(playerId, getPlayerType(), playerName);
 
         // Sūta ACK
         bzero(&pack, sizeof(pack));
