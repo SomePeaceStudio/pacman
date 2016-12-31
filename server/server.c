@@ -51,6 +51,7 @@ void sendMapUpdate(int sock);
 void sendPlayersState(int sock);
 void sendStart(int sock, int32_t playerId);
 void sendScores(int sock);
+int sendEnd(int sock);
 int handleJoin(int sock, int32_t playerId);
 int readQuitPacket(int sock, int32_t playerId);
 
@@ -182,6 +183,8 @@ void* handleClient(void *sockets) {
         }
         // Pārbauda vai spēle ir beigusies
         if(END){
+            // Nosūta END paketi
+            sendEnd(sockTCP);
             while(END){}
             // Atkārtoti sūta start, lai klients var inicializēt karti
             sendStart(sockTCP, playerId);
@@ -518,8 +521,21 @@ void sendMapUpdate(int sock){
     debug_print("%s\n", "Sending MAP packet...");
     safeSend(sock, pack, packSize, 0);
     if(pack!=0){
-        free(pack);
+    free(pack);
     }
+}
+
+// ========================================================================= //
+
+int sendEnd(int sock){
+    char pack[PSIZE_END];
+    pack[0]=PTYPE_END;
+    debug_print("%s\n", "Sending END packet.. ");
+    if(safeSend(sock, &pack, PSIZE_END, 0) < 0){
+        perror(ERR_SEND);
+        return 1;
+    };
+    return 0;
 }
 
 // ========================================================================= //

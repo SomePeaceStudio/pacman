@@ -11,6 +11,8 @@
 // Shared functions for client and server
 #include "../shared/shared.h"
 
+//TODO: saņemt END paketi
+//TODO: saņemt START paketi ik reizes, kad beidzas mačš
 
 // Globals
 char **MAP;
