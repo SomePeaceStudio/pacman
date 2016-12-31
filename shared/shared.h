@@ -27,6 +27,8 @@
 #define PTYPE_PLAYERS 5
 #define PTYPE_SCORE 6
 #define PTYPE_MOVE 7
+#define PTYPE_MESSAGE 8
+#define PTYPE_QUIT 9
 
 // Pakešu izmēri tām paketēm, kurām ir fiksēti izmēri (PSIZE - Packet Size)
 #define PSIZE_JOIN 21   // 20 baiti niks + 1 baits tipam
@@ -35,6 +37,7 @@
 #define PSIZE_END 1
 #define PSIZE_SCORE 13  // Tips, packet.length, score, player.id
 #define PSIZE_MOVE 6    // Tips, player.id, virziens
+#define PSIZE_QUIT 5    // Tips, player.id
 
 // Fiksēts spēlētāja objekta izmērs priekš PLAYERS tipa paketes
 #define OSIZE_PLAYER 14 // id(int), x(float), y(float), PlayerState, PlayerType
@@ -51,6 +54,9 @@
 #define DIR_NONE -1
 
 #define MAX_NICK_SIZE 20
+// Paketes maksimālais izmērs, kad pakete tiek devinēta statiski
+#define MAX_PACK_SIZE 1024
+
 
 // Spēlētāja stāvoklis
 #define PLSTATE_LIVE 0
@@ -74,6 +80,13 @@
 #define ERR_SOCKET "Failed to create socket"
 #define ERR_CONNECT "Failed to connect to socket"
 #define ERR_BIND "Failed to bind socket"
+#define ERR_RECV "Failed to receive bytes"
+#define ERR_SEND "Failed to send bytes"
+
+//Vispār pieņemti datu tipu izmēri
+#define ENUM_SIZE 1
+#define INT_SIZE 4
+
 
 // ========================== STRUKTŪRAS =================================== //
 
@@ -86,8 +99,8 @@ typedef struct {
     float y;
     char mdir;          // Kurstības virziens (move direction) glabā DIR_.. vērtību
     char state;         // PLSTATE_
-    int8_t disconnected;// Globālais mainīgais, lai konstatētu, kad spēlētājs
-                        // ir atvienojies no servera
+    volatile int8_t disconnected;   // Globālais mainīgais, lai konstatētu, kad spēlētājs
+                                    // ir atvienojies no servera
 } object_t;
 
 typedef struct {
@@ -103,7 +116,7 @@ typedef struct {
 // ========================== PROTOTIPI ==================================== //
 
 void Die(char *mess);
-void safeSend(int sockfd, const void *buf, size_t len, int flags);
+int safeSend(int sockfd, const void *buf, size_t len, int flags);
 int safeRecv(int sockfd, void *buf, size_t len, int flags);
 char* allocPack(int size);
 char receivePacktype(int sock);

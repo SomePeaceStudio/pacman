@@ -11,12 +11,14 @@
 // Shared functions for client and server
 #include "../shared/shared.h"
 
+//TODO: saņemt END paketi
+//TODO: saņemt START paketi ik reizes, kad beidzas mačš
 
 // Globals
 char **MAP;
 int mapWidth;
 int mapHeight;
-int playerId;
+int32_t playerId;
 char playerName[MAX_NICK_SIZE+1] = "pacMonster007----END";
 pthread_t  tid;   // Second thread
 
@@ -27,6 +29,7 @@ int joinGame(int sock);
 char receivePacktype(int sock);
 void waitForStart(int sock);
 void* actionTherad(void *parm);   /* Thread function to client actions */
+int sendQuit(int sock);
 
 // ========================================================================= //
 
@@ -34,29 +37,31 @@ void* actionTherad(void *parm){
     int sock = (int)(intptr_t)parm;
     printf("%s\n", "a: <- left, w: up, d: -> right, s: down");
     char* pack;
+
     pack = allocPack(PSIZE_MOVE);
-    pack[0] = PTYPE_MOVE;
     debug_print("Setting Id: %d\n", playerId);
-    memcpy(&pack[1], &playerId, sizeof(playerId));
-    debug_print("Id was set: %d\n", *(int*)(pack+1));
+    pack[0] = PTYPE_MOVE;
+    itoba(playerId, &pack[1]);
+    debug_print("Id was set: %d\n", batoi(&pack[1]));
     while(1){
-        char* move;
-        fscanf(stdin,"%s", move);
-        // Get vector
-        if(move[0] == 'a'){
+        char* command;
+        fscanf(stdin,"%s", command);
+        
+        // Pārtulko par virzienu
+        if(command[0] == 'a'){
             pack[5] = DIR_LEFT;
-        }else if( move[0] == 'w' ){
+        }else if( command[0] == 'w' ){
             pack[5] = DIR_UP;
-        }else if( move[0] == 'd' ){
+        }else if( command[0] == 'd' ){
             pack[5] = DIR_RIGHT;
-        }else if( move[0] == 's' ){
+        }else if( command[0] == 's' ){
             pack[5] = DIR_DOWN;
         }else{
             continue;
         }
         /* Send move */
         safeSend(sock, pack, PSIZE_MOVE, 0);
-        printf("You'r move was: %c\n", move[0]);
+        printf("You'r move was: %c\n", command[0]);
     }
     if(pack!=0){
         free(pack);
@@ -119,20 +124,22 @@ int main(int argc, char *argv[]) {
     pthread_create(&tid, NULL, actionTherad, (void*)(intptr_t) sockUDP);   
     
     while(1){
+
         memset(&pack, 0, 1024);
         safeRecv(sockUDP,&pack,sizeof(pack),0);
-        packtype = pack[0];
+        
         // Receive MAP
-        if( (int)packtype == PTYPE_MAP ){
+        if( (int)pack[0] == PTYPE_MAP ){
             debug_print("%s\n", "Getting MAP pack...");
 
             packSize = mapHeight*mapWidth;
             memcpy(*MAP, &pack[1], packSize);
             // safeRecv(sockUDP, *MAP, packSize, 0);
             printMap(MAP, mapWidth, mapHeight);
+            continue;
         }
         // Saņem PLAYERS paketi
-        if( (int)packtype == PTYPE_PLAYERS ){
+        if( (int)pack[0] == PTYPE_PLAYERS ){
             // Kartes renderēšana
             float x,y;
             int xfloor, yfloor; // Lai atrastu lauciņu uz kartes
@@ -142,8 +149,7 @@ int main(int argc, char *argv[]) {
 
             debug_print("%s\n", "Getting PLAYERS pack...");
             // Saņem spēlētāju daudzumu
-            int32_t playerCount;
-            memcpy(&playerCount, &pack[1],sizeof(playerCount));
+            int32_t playerCount = batoi(&pack[1]);
             debug_print("Receiving %d players...\n", playerCount);
 
             char playerObjBuffer[OSIZE_PLAYER];
@@ -173,6 +179,15 @@ int main(int argc, char *argv[]) {
             }
             printMap(mapBuffer, mapWidth, mapHeight);
             free(mapBuffer); // TODO: Pārbaudīt vai visa atmiņa tiek atbrīvota
+            continue;
+        }
+        if( (int)pack[0] == PTYPE_SCORE ){
+            for(int i = 0; i < batoi(&pack[1]); i++){
+                printf("Id: %d Score: %d\n",batoi(&pack[5+i*(INT_SIZE*2)]),\
+                    batoi(&pack[9+i*(INT_SIZE*2)]));
+                
+            }
+            continue;
         }
    
     }
@@ -271,6 +286,19 @@ void waitForStart(int sock){
     if(pack != 0){
         free(pack);
     }
+}
+
+// ========================================================================= //
+
+int sendQuit(int sock){
+    char pack[PSIZE_QUIT];
+    pack[0] = PTYPE_QUIT;
+    itoba(playerId, &pack[1]);
+    if(safeSend(sock, &pack, PSIZE_QUIT, 0) < 0){
+        return 1;
+    };
+    debug_print("%s\n", "Quit was sent!");
+    return 0;
 }
 
 // ========================================================================= //
