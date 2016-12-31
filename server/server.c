@@ -28,12 +28,13 @@ int32_t ID = 1;
 objectNode_t *STATE;
 
 char** MAP;
-int stateObjCount = 0;
 int MAPHEIGHT;
 int MAPWIDTH;
-volatile short END = 1;      // Nosaka vai spēle ir beigusies, pēles laikā END=0
-pthread_t  mainGameThread;   // Second thread
-thread_pool_t threadPool;
+volatile int playerCount = 0;   // Pašreizējais spēlētāju skaits
+volatile short END = 1;         // Nosaka vai spēle ir beigusies
+volatile int randSeed = 1;      // seed priekš rand; 
+pthread_t  mainGameThread;      // Galvenais GAME-LOOP
+thread_pool_t threadPool;  
 
 // ========================================================================= //
 
@@ -58,6 +59,7 @@ int readQuitPacket(int sock, int32_t playerId);
 
 void getNewMap(char* filename);
 void initNewPlayer(int id, int type, char *name);
+int getPlayerType();
 void setSpawnPoint(float *x, float *y);
 void updateState();
 void resetGame();
@@ -216,6 +218,7 @@ int main(int argc, char *argv[]) {
     int serversock;
     sockets_t clientSock;
     struct sockaddr_in gameserver, gameclient;
+    
 
     if (argc != 3) {
       fprintf(stderr, "USAGE: server <port> <mapfile>\n");
@@ -341,11 +344,11 @@ void updateState(){
             continue; 
         }
         if((int)floorf(*x+xSpeed+tileSize/2) >= MAPWIDTH){
-            *x+=xSpeed-MAPHEIGHT;
+            *x+=xSpeed-MAPWIDTH;
             continue;  
         }
         if((int)floorf(*x+xSpeed+tileSize/2) < 0){
-            *x+=xSpeed+MAPHEIGHT;
+            *x+=xSpeed+MAPWIDTH;
             continue;  
         }
 
@@ -407,9 +410,9 @@ int handleJoin(int sock, int32_t playerId){
         playerName[MAX_NICK_SIZE] = '\0';
         debug_print("Received playerName: %s\n", playerName);
 
-
-        //TODO: Dinamiski izvēlēties PLTYPE
-        initNewPlayer(playerId, PLTYPE_PACMAN, playerName);
+        //TODO: Uzlikt MUTEX, lai spēlētāju skaits nenojūk
+        int playerType = getPlayerType();
+        initNewPlayer(playerId, playerType, playerName);
 
         // Sūta ACK
         bzero(&pack, sizeof(pack));
@@ -457,10 +460,10 @@ void sendPlayersState(int sock){
     int packSize;
     char* pack;
 
-    packSize = 1 + 4 + stateObjCount*OSIZE_PLAYER;
+    packSize = 1 + 4 + playerCount*OSIZE_PLAYER;
     pack = allocPack(packSize);
     pack[0] = PTYPE_PLAYERS;
-    itoba(stateObjCount, &pack[1]);
+    itoba(playerCount, &pack[1]);
 
     //TODO: pārraktīt int/float sūtīšanu uz endianes safe variantu
     char* currObj = &pack[5]; // Norāda uz sākumvietu, kur rakstīt objektu
@@ -486,14 +489,14 @@ void sendPlayersState(int sock){
 
 void sendScores(int sock){
     char pack[MAX_PACK_SIZE];
-    int packSize = ENUM_SIZE+INT_SIZE+stateObjCount*(INT_SIZE*2);
+    int packSize = ENUM_SIZE+INT_SIZE+playerCount*(INT_SIZE*2);
     if( MAX_PACK_SIZE < packSize ){
         debug_print("Scores pack size is too large: %d max: %d\n",\
             packSize,MAX_PACK_SIZE);
     }
 
     pack[0] = PTYPE_SCORE;
-    itoba(stateObjCount, &pack[1]);
+    itoba(playerCount, &pack[1]);
 
     char* currObj = &pack[5]; // Norāda uz sākumvietu, kur rakstīt objektu
     for(objectNode_t *current = STATE; current != 0; current = current->next){
@@ -540,9 +543,27 @@ int sendEnd(int sock){
 
 // ========================================================================= //
 
+//TODO: Randomizēt
 void setSpawnPoint(float *x, float *y){
-    for (int i = 0; i < MAPHEIGHT; ++i){
-        for (int j = 0; j < MAPWIDTH; ++j){
+    // Iegūst samērā nejaušu punktu 2D masīvā
+    srand(randSeed++); // Maina rand seed ik reiz pirms izmantošanas
+    int rrow = rand() % MAPHEIGHT;
+    int rcol = rand() % MAPWIDTH;
+    printf("Random Spawn spot in MAP array: [%2d;%2d]\n", rrow, rcol);
+
+    // Pārbauda vai vieta no šī punkta uz priekšu ir bīva
+    for (int i = rrow; i < MAPHEIGHT; ++i){
+        for (int j = rcol; j < MAPWIDTH; ++j){
+            if(MAP[i][j] == MTYPE_EMPTY){
+                *x = j; *y = i;
+                return;
+            }
+        }
+    }
+
+    // Pārbauda vai vieta no šī punkta uz atpakaļu ir bīva
+    for (int i = rrow; i >= 0; --i){
+        for (int j = rcol; j >= 0 ; --j){
             if(MAP[i][j] == MTYPE_EMPTY){
                 *x = j; *y = i;
                 return;
@@ -551,6 +572,15 @@ void setSpawnPoint(float *x, float *y){
     }
     //TODO: Do something.
     debug_print("%s\n", "Could not find any free spawn place.");
+}
+
+// ========================================================================= //
+
+int getPlayerType(){
+    // Izlīdzina pacman un ghost skaitu uz visiem spēlētājiem 
+    // sākotnēji pieslēdzoties
+    // NOTE: Ar laiku varētu izdomāt ko interesantāku
+    return playerCount % 2 ? PLTYPE_GHOST : PLTYPE_PACMAN;
 }
 
 // ========================================================================= //
@@ -573,7 +603,7 @@ void initNewPlayer(int id, int type, char *name){
 // ========================================================================= //
 
 void addObjectNode(objectNode_t **start, objectNode_t *newNode){
-    stateObjCount++;
+    playerCount++;
     // If List is empty
     if(*start == 0){
         *start = newNode;
@@ -587,7 +617,7 @@ void addObjectNode(objectNode_t **start, objectNode_t *newNode){
 // ========================================================================= //
 
 void addObjectNodeEnd(objectNode_t **start, objectNode_t *newNode){
-    stateObjCount++;
+    playerCount++;
     // If List is empty
     if(*start == 0){
         *start = newNode;
@@ -625,7 +655,7 @@ void deleteObjectWithId(objectNode_t **start, int id){
             if(deleteObjectNode(start, current)){
                 debug_print("Could not delete node with id: %d\n", id);
             };
-            stateObjCount--;
+            playerCount--;
             return;
         }
     }
@@ -663,7 +693,7 @@ void printPlayerList(objectNode_t *start){
            current->object.y, current->object.state, current->object.name, \
            current->object.points, current->object.mdir);
     }
-    printf("Total count: %d\n", stateObjCount);
+    printf("Total count: %d\n", playerCount);
     printf("%s\n", "=============================");
 }
 
