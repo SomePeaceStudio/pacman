@@ -33,3 +33,6 @@ rebuild: clean all
 
 mkdir:
 	mkdir -p bin
+
+debug: CFLAGS+= -g
+debug: all
