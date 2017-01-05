@@ -580,7 +580,10 @@ void sendMapUpdate(int sock){
     pack = allocPack(packSize);
     pack[0] = PTYPE_MAP;
     memcpy(&pack[1], *MAP, MAPWIDTH * MAPHEIGHT);
-
+    
+    printf("MAP packet:\n");
+    printPacket(pack, packSize);
+    
     printMappacPretty(&pack[1], MAPWIDTH, MAPHEIGHT);
     // Send MAP packet
     debug_print("%s\n", "Sending MAP packet...");

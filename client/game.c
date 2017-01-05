@@ -5,8 +5,6 @@
 #include "game.h"
 #include "tile.h"
 
-const int TILE_COUNT = 100;
-
 //TODO: pievienot time-out gadījumam, ja serveris neatbild
 //TODO: pārcelt uz citu pavedienu, lai varētu aizvērt logu, ja serveris neatbild
 void waitForStart(
@@ -19,13 +17,10 @@ void waitForStart(
     if(packtype == PTYPE_START){
         pack = allocPack(PSIZE_START-1);
         safeRecv(sock->tcp, pack, PSIZE_START-1, 0);
-        // Set map sizes (globals)
         *mapHeight = (int)pack[0];
         *mapWidth = (int)pack[1];
         player->x = (int32_t)pack[2];
         player->y = (int32_t)pack[3];
-        // debug_print("Received Map sizes, width: %2d  height: %2d plx: %d ply: %d\n",\
-        //                 gMapWidth, gMapHeight, gPlayerX, gPlayerY);
     }
     
     free(pack);
@@ -37,9 +32,12 @@ void game_showMainWindow(
     SDL_Window* window = NULL;
     SDL_Surface* surface = NULL;
     SDL_Renderer* renderer = NULL;
-    int mapWidth, mapHeight;
-    char** map;
-    Tile* tileSet[TILE_COUNT];
+    SDL_Rect camera = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
+    int mapWidth, mapHeight, tileCount;
+    int levelWidth;
+    Tile* tileSet; //Tile masīvs
+    WTexture tileTexture;
+    SDL_Rect tileClips[TOTAL_TILE_SPRITES];
     
     //Init SDL
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -88,9 +86,8 @@ void game_showMainWindow(
         exit(1);
     }
     
-    bool quit = false;
-    SDL_Event e;
-    
+    tileTexture = *wtexture_fromFile(renderer, "tiles.png");
+
     //Uzzīmē logu
     surface = SDL_GetWindowSurface(window);
     SDL_FillRect( surface, NULL, SDL_MapRGB( surface->format, 0xFF, 0xFF, 0xFF ) );
@@ -98,15 +95,121 @@ void game_showMainWindow(
     
     //Gaida spēlēs sākumu no servera
     waitForStart(sock, player, &mapWidth, &mapHeight);
+    tileCount = mapWidth * mapHeight;
+    levelWidth = mapWidth * TILE_SIZE;
+    tileSet = calloc(tileCount, sizeof(Tile));
+    if (tileSet == NULL) {
+        Die(ERR_MALLOC);
+    }
+    
+    SDL_SetWindowSize(window, levelWidth, mapHeight * TILE_SIZE);
+    
+    char packType;
+    char* pack = allocPack(1024);
+    
+    bool quit = false;
+    SDL_Event e;
+    
+    tileClips[MTYPE_EMPTY].x = 0;
+    tileClips[MTYPE_EMPTY].y = 0;
+    tileClips[MTYPE_EMPTY].w = TILE_SIZE;
+    tileClips[MTYPE_EMPTY].h = TILE_SIZE;
+    
+    tileClips[MTYPE_DOT].x = 50;
+    tileClips[MTYPE_DOT].y = 0;
+    tileClips[MTYPE_DOT].w = TILE_SIZE;
+    tileClips[MTYPE_DOT].h = TILE_SIZE;
+    
+    tileClips[MTYPE_WALL].x = 100;
+    tileClips[MTYPE_WALL].y = 0;
+    tileClips[MTYPE_WALL].w = TILE_SIZE;
+    tileClips[MTYPE_WALL].h = TILE_SIZE;
+    
+    tileClips[MTYPE_POWER].x = 0;
+    tileClips[MTYPE_POWER].y = 50;
+    tileClips[MTYPE_POWER].w = TILE_SIZE;
+    tileClips[MTYPE_POWER].h = TILE_SIZE;
+    
+    tileClips[MTYPE_INVINCIBILITY].x = 50;
+    tileClips[MTYPE_INVINCIBILITY].y = 50;
+    tileClips[MTYPE_INVINCIBILITY].w = TILE_SIZE;
+    tileClips[MTYPE_INVINCIBILITY].h = TILE_SIZE;
+    
+    tileClips[MTYPE_SCORE].x = 100;
+    tileClips[MTYPE_SCORE].y = 50;
+    tileClips[MTYPE_SCORE].w = TILE_SIZE;
+    tileClips[MTYPE_SCORE].h = TILE_SIZE;
     
     //Main loop
     while (!quit) {
         
-        //Apstrādā notikumus events()
+        //Apstrādā notikumus (events)
         while( SDL_PollEvent( &e ) != 0 ) {
             if(e.type == SDL_QUIT) {
                 quit = true;
             }
+        }
+        
+        // char pack[] = { 0x4, 0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x0, 0x1, 0x2 };
+        // 
+        // //X un Y nobīdes kartē
+        // int x = 0, y = 0;
+        // for (int i = 0; i < tileCount; i++) {
+        //     printf("New tile %d at %d %d\n", pack[i+1], x, y);
+        //     tileSet[i] = *tile_new(x, y, pack[i+1]);
+        //     
+        //     x += TILE_SIZE;
+        //     
+        //     //"Pārlec" uz jaunu rindu
+        //     if (x >= levelWidth) {
+        //         x = 0;
+        //         y += TILE_SIZE;
+        //     }
+        // }
+        // 
+        // //Uzzīmē karti
+        // for (int i = 0; i < tileCount; i++) {
+        //     tile_render(&tileSet[i], renderer, &camera, &tileTexture, tileClips);
+        // }
+        // SDL_RenderPresent (renderer);
+        
+        int received = safeRecv(sock->udp, pack, 1024, 0);
+        
+        switch (pack[0]) {
+            case PTYPE_MAP:
+            printf("MAP\n");
+            
+            //X un Y nobīdes kartē
+            int x = 0, y = 0;
+            for (int i = 0; i < tileCount; i++) {
+                tileSet[i] = *tile_new(x, y, pack[i+1]);
+                
+                x += TILE_SIZE;
+                
+                //"Pārlec" uz jaunu rindu
+                if (x >= levelWidth) {
+                    x = 0;
+                    y += TILE_SIZE;
+                }
+            }
+            
+            SDL_SetRenderDrawColor( renderer, 0xFF, 0xFF, 0xFF, 0xFF );
+            SDL_RenderClear( renderer );
+            
+            //Uzzīmē karti
+            for (int i = 0; i < tileCount; i++) {
+                tile_render(&tileSet[i], renderer, &camera, &tileTexture, tileClips);
+            }
+            SDL_RenderPresent (renderer);
+            break;
+            
+            case PTYPE_PLAYERS:
+            printf("PLAYERS\n");
+            break;
+            
+            case PTYPE_SCORE:
+            printf("SCORE\n");
+            break;
         }
     }
     

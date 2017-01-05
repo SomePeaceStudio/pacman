@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
     clientAdrrLength = sizeof(gameclient);
     getsockname(sockTCP, (struct sockaddr*)&gameclient, &clientAdrrLength);
     if (bind(sockUDP,(struct sockaddr *)&gameclient,clientAdrrLength)<0){
-        Die(ERR_BIND);        
+        Die(ERR_BIND);
     } 
 
     // ----------- Savienojas ar serveri - UDP ----------------------------- //
