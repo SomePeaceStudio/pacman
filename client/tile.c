@@ -3,8 +3,7 @@
 #include "tile.h"
 #include "../shared/shared.h"
 
-Tile* tile_new(int x, int y, char type) {
-    Tile* tile = malloc(sizeof(Tile));
+void tile_new(Tile* tile, int x, int y, char type) {
     if (tile == NULL) {
         Die(ERR_MALLOC);
     }
@@ -13,8 +12,6 @@ Tile* tile_new(int x, int y, char type) {
     tile->box.y = y;
     tile->box.w = tile->box.h = TILE_SIZE;
     tile->type = type;
-    
-    return tile;
 }
 
 bool checkCollision(SDL_Rect a, SDL_Rect b) {

@@ -530,21 +530,16 @@ void sendPlayersState(int sock){
 
     char* currObj = &pack[5]; // Norāda uz sākumvietu, kur rakstīt objektu
     for(objectNode_t *current = STATE; current != 0; current = current->next){
-        //Ieraksta id
+        //Id
         itoba(current->object.id, currObj);
         currObj += 4;
         
-        //Lai vieglāk ierakstīt un nolasīt float skaitļus, to baitus raksta tā,
-        //  it kā tas būtu parasts int.
-        //Pati koordinātas vērtība izmainīta netiek
-        int32_t* intPtr;
-        intPtr = (int32_t*)&current->object.x;
-        itoba(*intPtr, currObj);
+        //X koordināta
+        ftoba(current->object.x, currObj);
         currObj += 4;
         
-        //Tāpat ieraksta y koordinātu
-        intPtr = (int32_t*)&current->object.y;
-        itoba(*intPtr, currObj);
+        //Y koordināta
+        ftoba(current->object.y, currObj);
         currObj += 4;
         
         //Ieraksta spēlētāja stāvokli

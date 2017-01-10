@@ -10,7 +10,7 @@ typedef struct {
     SDL_Texture* texture;
 } WTexture;
 
-WTexture* wtexture_fromFile(SDL_Renderer* rederer, const char* path);
+void wtexture_fromFile(WTexture* wtexture, SDL_Renderer* renderer, const char* path);
 void wtexture_free(WTexture* wtexture);
 void wtexture_render(
     WTexture* wtexture,

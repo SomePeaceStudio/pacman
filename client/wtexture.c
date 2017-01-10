@@ -1,8 +1,7 @@
 #include "wtexture.h"
 #include "SDL2/SDL_image.h"
 
-WTexture* wtexture_fromFile(SDL_Renderer* renderer, const char* path) {
-    WTexture* wtexture = malloc(sizeof(WTexture));
+void wtexture_fromFile(WTexture* wtexture, SDL_Renderer* renderer, const char* path) {
     SDL_Texture* sdlTexture = NULL;
 
 	//Ielādē attēlu no faila
@@ -31,7 +30,6 @@ WTexture* wtexture_fromFile(SDL_Renderer* renderer, const char* path) {
 
 	//Return success
 	wtexture->texture = sdlTexture;
-    return wtexture;
 }
 
 void wtexture_free(WTexture* wtexture) {

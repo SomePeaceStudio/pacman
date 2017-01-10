@@ -86,7 +86,7 @@ void game_showMainWindow(
         exit(1);
     }
     
-    tileTexture = *wtexture_fromFile(renderer, "tiles.png");
+    wtexture_fromFile(&tileTexture, renderer, "tiles.png");
 
     //Uzzīmē logu
     surface = SDL_GetWindowSurface(window);
@@ -150,39 +150,15 @@ void game_showMainWindow(
             }
         }
         
-        // char pack[] = { 0x4, 0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x0, 0x1, 0x2 };
-        // 
-        // //X un Y nobīdes kartē
-        // int x = 0, y = 0;
-        // for (int i = 0; i < tileCount; i++) {
-        //     printf("New tile %d at %d %d\n", pack[i+1], x, y);
-        //     tileSet[i] = *tile_new(x, y, pack[i+1]);
-        //     
-        //     x += TILE_SIZE;
-        //     
-        //     //"Pārlec" uz jaunu rindu
-        //     if (x >= levelWidth) {
-        //         x = 0;
-        //         y += TILE_SIZE;
-        //     }
-        // }
-        // 
-        // //Uzzīmē karti
-        // for (int i = 0; i < tileCount; i++) {
-        //     tile_render(&tileSet[i], renderer, &camera, &tileTexture, tileClips);
-        // }
-        // SDL_RenderPresent (renderer);
-        
         int received = safeRecv(sock->udp, pack, 1024, 0);
-        
+        int32_t playerCount;
         switch (pack[0]) {
             case PTYPE_MAP:
             printf("MAP\n");
-            
             //X un Y nobīdes kartē
             int x = 0, y = 0;
             for (int i = 0; i < tileCount; i++) {
-                tileSet[i] = *tile_new(x, y, pack[i+1]);
+                tile_new(&tileSet[i], x, y, pack[i+1]);
                 
                 x += TILE_SIZE;
                 
@@ -203,16 +179,46 @@ void game_showMainWindow(
             SDL_RenderPresent (renderer);
             break;
             
+            
             case PTYPE_PLAYERS:
             printf("PLAYERS\n");
+            //Paketes otrais līdz piektais baits nosaka spēlētāju skaitu
+            playerCount = batoi(&pack[1]);
+            printf("Player count: %d\n", playerCount);
+            const size_t objSize = 14;
+            printPacket(pack, 5 + playerCount * objSize);
+            
+            //Darbojas, kā kursors, kurš glabā vietu, līdz kurai pakete nolasīta
+            char* currentByte = &pack[5];
+            for (int i = 0; i < playerCount; i++) {
+                int id = batoi(currentByte);
+                currentByte += 4;
+                
+                float x = batof(currentByte);
+                currentByte += 4;
+                
+                float y = batof(currentByte);
+                currentByte += 4;
+                
+                char state = *currentByte;
+                currentByte++;
+                
+                char type = *currentByte;
+                currentByte++;
+                
+                printf("Player %d is at %f %f state: %x, type: %x\n", id, x, y, state, type);
+            }
+            
             break;
             
             case PTYPE_SCORE:
-            printf("SCORE\n");
+            // printf("SCORE\n");
             break;
         }
     }
     
+    //Cleanup
     SDL_DestroyWindow(window);
     SDL_DestroyRenderer(renderer);
+    free(tileSet);
 }

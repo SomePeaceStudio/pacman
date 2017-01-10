@@ -133,5 +133,8 @@ void printPacket(const unsigned char* packet, size_t length);
 //"Byte Array to Integer" un "Integer to Byte Array"
 int32_t batoi (const unsigned char bytes[4]);
 void itoba (int32_t integer, unsigned char buffer[4]);
+//"Byte Array to Float" un "Float to Byte Array"
+float batof(const unsigned char bytes[4]);
+void ftoba(float number, unsigned char buffer[4]);
 
 #endif //SHARED_H

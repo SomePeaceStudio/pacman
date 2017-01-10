@@ -52,6 +52,6 @@ int main(int argc, char* argv[]) {
     
     //Parāda galveno spēles logu
     game_showMainWindow(&player, &sock, &serverAddress);
-    
+
     return 0;
 }

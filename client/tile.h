@@ -14,7 +14,7 @@ typedef struct {
     SDL_Rect box;
 } Tile;
 
-Tile* tile_new(int x, int y, char type);
+void tile_new(Tile* tile, int x, int y, char type);
 void tile_render(Tile* tile, SDL_Renderer* renderer, SDL_Rect* camera, WTexture* tileTexture, SDL_Rect* tileClips);
 
 #endif //TILE_H

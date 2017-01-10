@@ -163,3 +163,18 @@ void itoba (int32_t integer, unsigned char buffer[4]) {
     buffer[2] = (integer >> 8) & 0xFF;
     buffer[3] = integer & 0xFF;
 }
+
+// ========================================================================= //
+
+float batof(const unsigned char bytes[4]) {
+    int32_t integer = batoi(bytes);
+    float* floatPtr = (float*)&integer;
+    return *floatPtr;
+}
+
+// ========================================================================= //
+
+void ftoba(float number, unsigned char buffer[4]) {
+    int32_t* intPtr = (int32_t*)&number;
+    itoba(*intPtr, buffer);
+}
