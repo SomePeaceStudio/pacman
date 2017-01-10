@@ -522,20 +522,38 @@ void sendPlayersState(int sock){
     int packSize;
     char* pack;
 
+    //1 baits paketes tipam, 4 - spēlētāju skaitam (int)
     packSize = 1 + 4 + playerCount*OSIZE_PLAYER;
     pack = allocPack(packSize);
     pack[0] = PTYPE_PLAYERS;
     itoba(playerCount, &pack[1]);
 
-    //TODO: pārraktīt int/float sūtīšanu uz endianes safe variantu
     char* currObj = &pack[5]; // Norāda uz sākumvietu, kur rakstīt objektu
     for(objectNode_t *current = STATE; current != 0; current = current->next){
-        *(int*)currObj  = current->object.id;
-        *(float*)(currObj+4) = current->object.x;
-        *(float*)(currObj+8) = current->object.y;
-        *(currObj+12) = current->object.state;
-        *(currObj+13) = current->object.type;
-        currObj += 14;
+        //Ieraksta id
+        itoba(current->object.id, currObj);
+        currObj += 4;
+        
+        //Lai vieglāk ierakstīt un nolasīt float skaitļus, to baitus raksta tā,
+        //  it kā tas būtu parasts int.
+        //Pati koordinātas vērtība izmainīta netiek
+        int32_t* intPtr;
+        intPtr = (int32_t*)&current->object.x;
+        itoba(*intPtr, currObj);
+        currObj += 4;
+        
+        //Tāpat ieraksta y koordinātu
+        intPtr = (int32_t*)&current->object.y;
+        itoba(*intPtr, currObj);
+        currObj += 4;
+        
+        //Ieraksta spēlētāja stāvokli
+        *currObj = current->object.state;
+        currObj += 1;
+        
+        //Ieraksta spēlētāja tipu
+        *currObj = current->object.type;
+        currObj += 1;
     }
 
     // Send MAP packet
