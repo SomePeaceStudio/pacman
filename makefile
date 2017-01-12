@@ -11,8 +11,8 @@ LIBS_CLIENT=`pkg-config --libs gtk+-3.0` -lSDL2 -lSDL2_image
 CFLAGS_CLIENT=`pkg-config --cflags gtk+-3.0`
 
 #Gui klientam nepieciešamie faili
-HEADERS_CLIENT_GUI=client/login.h client/game.h client/tile.h client/player.h client/network.h
-SOURCES_CLIENT_GUI=client/main.c client/login.c client/game.c client/tile.c client/wtexture.c shared/shared.c client/player.c client/network.c
+HEADERS_CLIENT_GUI=client/login.h client/game.h client/tile.h client/player.h client/network.h shared/hashmap.h
+SOURCES_CLIENT_GUI=client/main.c client/login.c client/game.c client/tile.c client/wtexture.c shared/shared.c client/player.c client/network.c shared/hashmap.c
 
 #Izpildāmo failu nosaukumi
 BIN_CLIENT=bin/client

@@ -564,7 +564,8 @@ void sendPlayersState(int sock){
 
 void sendScores(int sock){
     char pack[MAX_PACK_SIZE];
-    int packSize = ENUM_SIZE+INT_SIZE+playerCount*(INT_SIZE*2);
+    //tips + skaits + (id un score katram spēlētājam)
+    int packSize = ENUM_SIZE + INT_SIZE + playerCount*(INT_SIZE*2);
     if( MAX_PACK_SIZE < packSize ){
         debug_print("Scores pack size is too large: %d max: %d\n",\
             packSize,MAX_PACK_SIZE);
