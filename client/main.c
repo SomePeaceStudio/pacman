@@ -11,7 +11,7 @@ int main(int argc, char* argv[]) {
     struct sockaddr_in serverAddress, clientAddr;
     socklen_t clientAddrLength;
     //Spēlētāja struktūra
-    Player player;
+    Player me;
     
     //izveido TCP soketu
     sock.tcp = socket(PF_INET, SOCK_STREAM, 0);
@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
     
     //Izveido pieslēgšanās logu un sagaida rezultātu no tā
     login_window* loginWindow = login_createWindow(
-        &argc, &argv, &sock, &serverAddress, &player
+        &argc, &argv, &sock, &serverAddress, &me
     );
     login_showWindow(loginWindow);
     login_waitForResult(loginWindow);
@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
     }
     
     //Parāda galveno spēles logu
-    game_showMainWindow(&player, &sock, &serverAddress);
+    game_showMainWindow(&me, &sock, &serverAddress);
 
     return 0;
 }

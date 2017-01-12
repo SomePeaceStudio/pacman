@@ -44,6 +44,7 @@
 
 // Virzieni, kādā spēlētāji var kustēties
 // Atbilst protokola ClientMovement enumerācijai
+#define DIR_UNDEFINED -1
 #define DIR_UP 0
 #define DIR_DOWN 1
 #define DIR_RIGHT 2

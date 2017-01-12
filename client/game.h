@@ -11,6 +11,6 @@
 #define SCREEN_HEIGHT 480
 
 void game_showMainWindow(
-    Player* player, sockets_t* sock, struct sockaddr_in* serverAddress);
+    Player* me, sockets_t* sock, struct sockaddr_in* serverAddress);
 
 #endif //GAME_H

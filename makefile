@@ -5,14 +5,14 @@ CC=gcc
 #-lm: lai varētu izmantot math.h	
 CFLAGS=-pthread -lm
 
-#Bibliotēkas, ko izmanto klients
+#Bibliotēkas, ko izmanto gui klients
 LIBS_CLIENT=`pkg-config --libs gtk+-3.0` -lSDL2 -lSDL2_image
-#Kompilatora opcijas priekš klienta
+#Kompilatora opcijas priekš gui klienta
 CFLAGS_CLIENT=`pkg-config --cflags gtk+-3.0`
 
 #Gui klientam nepieciešamie faili
-HEADERS_CLIENT_GUI=client/login.h client/game.h client/tile.h
-SOURCES_CLIENT_GUI=client/main.c client/login.c client/game.c client/tile.c client/wtexture.c shared/shared.c
+HEADERS_CLIENT_GUI=client/login.h client/game.h client/tile.h client/player.h client/network.h
+SOURCES_CLIENT_GUI=client/main.c client/login.c client/game.c client/tile.c client/wtexture.c shared/shared.c client/player.c client/network.c
 
 #Izpildāmo failu nosaukumi
 BIN_CLIENT=bin/client
@@ -27,6 +27,7 @@ client: client/client.c shared/shared.h mkdir
 client_gui: client/main.c $(HEADERS_CLIENT_GUI) mkdir
 	$(CC) $(CFLAGS_CLIENT) $(SOURCES_CLIENT_GUI) -o $(BIN_CLIENT_GUI) $(LIBS_CLIENT)
 	cp client/res/tiles.png bin/
+	cp client/res/players.png bin/
 
 server: server/server.c shared/shared.h shared/threads.h mkdir
 	$(CC) server/server.c shared/shared.c shared/threads.c $(CFLAGS) -o $(BIN_SERVER) 

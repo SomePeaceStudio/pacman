@@ -3,18 +3,70 @@
 #include "tile.h"
 #include "../shared/shared.h"
 
+static bool checkCollision(SDL_Rect a, SDL_Rect b);
+
+static SDL_Rect textureClips[TOTAL_TILE_SPRITES];
+
 void tile_new(Tile* tile, int x, int y, char type) {
     if (tile == NULL) {
-        Die(ERR_MALLOC);
+        return;
     }
     
     tile->box.x = x;
     tile->box.y = y;
-    tile->box.w = tile->box.h = TILE_SIZE;
+    tile->box.w = tile->box.h = TILE_SPRITE_SIZE;
     tile->type = type;
 }
 
-bool checkCollision(SDL_Rect a, SDL_Rect b) {
+void tile_render(Tile* tile, SDL_Renderer* renderer, SDL_Rect* camera, WTexture* tileTexture) {
+    if (checkCollision(*camera, tile->box)) {
+        wtexture_render(
+            tileTexture,
+            renderer,
+            tile->box.x - camera->x,
+            tile->box.y - camera->y,
+            &textureClips[tile->type],
+            0,
+            NULL,
+            SDL_FLIP_NONE
+        );
+    }
+}
+
+//Inicializē "sprites" robežas failā res/tiles.png
+void tile_init() {
+    textureClips[MTYPE_EMPTY].x = 0;
+    textureClips[MTYPE_EMPTY].y = 0;
+    textureClips[MTYPE_EMPTY].w = TILE_SPRITE_SIZE;
+    textureClips[MTYPE_EMPTY].h = TILE_SPRITE_SIZE;
+    
+    textureClips[MTYPE_DOT].x = 50;
+    textureClips[MTYPE_DOT].y = 0;
+    textureClips[MTYPE_DOT].w = TILE_SPRITE_SIZE;
+    textureClips[MTYPE_DOT].h = TILE_SPRITE_SIZE;
+    
+    textureClips[MTYPE_WALL].x = 100;
+    textureClips[MTYPE_WALL].y = 0;
+    textureClips[MTYPE_WALL].w = TILE_SPRITE_SIZE;
+    textureClips[MTYPE_WALL].h = TILE_SPRITE_SIZE;
+    
+    textureClips[MTYPE_POWER].x = 0;
+    textureClips[MTYPE_POWER].y = 50;
+    textureClips[MTYPE_POWER].w = TILE_SPRITE_SIZE;
+    textureClips[MTYPE_POWER].h = TILE_SPRITE_SIZE;
+    
+    textureClips[MTYPE_INVINCIBILITY].x = 50;
+    textureClips[MTYPE_INVINCIBILITY].y = 50;
+    textureClips[MTYPE_INVINCIBILITY].w = TILE_SPRITE_SIZE;
+    textureClips[MTYPE_INVINCIBILITY].h = TILE_SPRITE_SIZE;
+    
+    textureClips[MTYPE_SCORE].x = 100;
+    textureClips[MTYPE_SCORE].y = 50;
+    textureClips[MTYPE_SCORE].w = TILE_SPRITE_SIZE;
+    textureClips[MTYPE_SCORE].h = TILE_SPRITE_SIZE;
+}
+
+static bool checkCollision(SDL_Rect a, SDL_Rect b) {
     //Četrstūru malas
     int leftA, leftB;
     int rightA, rightB;
@@ -33,7 +85,7 @@ bool checkCollision(SDL_Rect a, SDL_Rect b) {
     topB = b.y;
     bottomB = b.y + b.h;
 
-    //If any of the sides from A are outside of B
+    //Ja kāda no A malām ir ārpus B
     if( bottomA <= topB )
         return false;
 
@@ -48,19 +100,4 @@ bool checkCollision(SDL_Rect a, SDL_Rect b) {
 
     //Ja neviena no a malām neatrodas ārpus b
     return true;
-}
-
-void tile_render(Tile* tile, SDL_Renderer* renderer, SDL_Rect* camera, WTexture* tileTexture, SDL_Rect* tileClips) {
-    if (checkCollision(*camera, tile->box)) {
-        wtexture_render(
-            tileTexture,
-            renderer,
-            tile->box.x - camera->x,
-            tile->box.y - camera->y,
-            &tileClips[tile->type],
-            0,
-            NULL,
-            SDL_FLIP_NONE
-        );
-    }
 }
