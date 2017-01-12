@@ -29,6 +29,7 @@
 #define PTYPE_MOVE 7
 #define PTYPE_MESSAGE 8
 #define PTYPE_QUIT 9
+#define PTYPE_JOINED 10
 
 // Pakešu izmēri tām paketēm, kurām ir fiksēti izmēri (PSIZE - Packet Size)
 #define PSIZE_JOIN 21   // 20 baiti niks + 1 baits tipam
@@ -38,6 +39,7 @@
 #define PSIZE_SCORE 13  // Tips, packet.length, score, player.id
 #define PSIZE_MOVE 6    // Tips, player.id, virziens
 #define PSIZE_QUIT 5    // Tips, player.id
+#define PSIZE_JOINED 25 // Tips, player.id, player.nick
 
 // Fiksēts spēlētāja objekta izmērs priekš PLAYERS tipa paketes
 #define OSIZE_PLAYER 14 // id(int), x(float), y(float), PlayerState, PlayerType
