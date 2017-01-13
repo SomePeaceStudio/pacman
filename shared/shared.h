@@ -94,6 +94,11 @@
 // ========================== STRUKTŪRAS =================================== //
 
 typedef struct {
+    int tcp;
+    int udp;
+} sockets_t;
+
+typedef struct {
     char type;          // PLTYPE_ pacman vai ghost
     int id;             // Spēlētāja id
     char name[21];      // Spēlētāja vārds
@@ -104,12 +109,8 @@ typedef struct {
     char state;         // PLSTATE_
     volatile int8_t disconnected;   // Globālais mainīgais, lai konstatētu, kad spēlētājs
                                     // ir atvienojies no servera
+    sockets_t sockets;     // Spēlētāja UDP un TCP soketi
 } object_t;
-
-typedef struct {
-    int tcp;
-    int udp;
-} sockets_t;
 
 typedef struct {
     int socket;

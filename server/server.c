@@ -174,8 +174,6 @@ void* handleClient(void *sockets) {
     player = getPlayer(STATE,playerId);
     player->sockets = *socketStruct;
     
-    printf ("TCP socket:  %d, UDP: %d\n", player->sockets.tcp, player->sockets.udp);
-    
     //------- START -------//
     sendStart(sockTCP, playerId);
    
@@ -636,7 +634,6 @@ void sendBroadcast(char* pack, size_t length, bool useTcp) {
     for (objectNode_t* current = STATE; current != NULL; current = current->next) {
         int sock = useTcp ? current->object.sockets.tcp : current->object.sockets.udp;
         if (sock != 0) {
-            printf("Sending broadcast to sock: %d\n", sock);
             safeSend(sock, pack, length, 0);
         }
     }
