@@ -1,6 +1,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <stdbool.h>
+#include <pthread.h>
 
 #include "game.h"
 #include "tile.h"
@@ -14,6 +15,26 @@
 //Nodefinē hashmap priekš int atslēgām un Player tipa datiem
 HASHMAP_FUNCS_DECLARE(int, int32_t, Player);
 HASHMAP_FUNCS_CREATE(int, int32_t, Player);
+
+
+//Struktūra, ko padot pthread_create kā argumentu
+typedef struct {
+    sockets_t sockets;
+    uint32_t tileCount;
+    uint32_t levelWidth;
+    Player* me;
+    Tile* tiles;
+    struct hashmap* hm_players;
+} thread_args_t;
+
+void waitForStart();
+void game_handleInput(int sock, int playerId, SDL_KeyboardEvent* event);
+void game_showMainWindow(Player* me, sockets_t* sock, struct sockaddr_in* serverAddress);
+
+//Funkcijas, ko izpildīs divi papildus pavedieni
+void* thread_handleUdpPackets(void* arg);
+void* thread_handleTcpPackets(void* arg);
+
 
 //TODO: pievienot time-out gadījumam, ja serveris neatbild
 //TODO: pārcelt uz citu pavedienu, lai varētu aizvērt logu, ja serveris neatbild
@@ -127,7 +148,9 @@ void game_showMainWindow(
     tile_init();
     player_init();
     
-    hashmap_init(&hm_players, hashmap_hash, hashmap_compare_keys, PLAYER_COUNT_MAX);
+    //Hashmap izmērs ir maksimālas spēlētāju skaits, kas ir vienāds ar spēlētāju
+    //  skaitu, ko serveris var nosūtīt
+    hashmap_init(&hm_players, hashmap_hash, hashmap_compare_keys, MAX_PACK_SIZE / OSIZE_PLAYER);
     
     //Uzzīmē logu
     surface = SDL_GetWindowSurface(window);
@@ -145,16 +168,29 @@ void game_showMainWindow(
     
     SDL_SetWindowSize(window, levelWidth, mapHeight * TILE_SPRITE_SIZE);
     
-    char packType;
-    char* pack = allocPack(1024);
-    
     bool quit = false;
     SDL_Event e;
+    
+    
+    
+    //Start thread
+    pthread_t tcpThread;
+    pthread_t udpThread;
+    thread_args_t threadArgs = {
+        .sockets = *sock,
+        .tileCount = tileCount,
+        .levelWidth = levelWidth,
+        .me = me,
+        .tiles = tileSet,
+        .hm_players = &hm_players
+    };
+    
+    pthread_create(&udpThread, NULL, thread_handleUdpPackets, &threadArgs);
     
     //Main loop
     while (!quit) {
         
-        //Apstrādā notikumus (events)
+        //Event loop
         while( SDL_PollEvent( &e ) != 0 ) {
             switch (e.type) {
                 case SDL_QUIT:
@@ -167,62 +203,88 @@ void game_showMainWindow(
             }
         }
         
-        int received = safeRecv(sock->udp, pack, 1024, 0);
+        SDL_RenderClear(renderer);
         
-        int32_t playerCount;
-        unsigned char* currentByte;
+        //Renderē tiles (pagaidām tikai atmiņā, nevis uz ekrāna)
+        for (int i = 0; i < tileCount; i++) {
+            tile_render(&tileSet[i], renderer, &camera, &tileTexture);
+        }
+        
+        //Renderē spēlētājus atmiņā
+        void* iter; //Hashmap iterators
+        Player* pl;
+        for (iter = hashmap_iter(&hm_players); iter; iter = hashmap_iter_next(&hm_players, iter)) {
+            pl = hashmap_int_iter_get_data(iter);
+            player_render(pl, &camera, &playerTexture, renderer);
+        }
+        player_render(me, &camera, &playerTexture, renderer);
+        
+        //Renderē visu uz ekrāna
+        SDL_RenderPresent (renderer);
+    }
+    
+    //Cleanup
+    SDL_DestroyWindow(window);
+    SDL_DestroyRenderer(renderer);
+    free(tileSet);
+    hashmap_destroy(&hm_players);
+}
+
+void* thread_handleUdpPackets(void* arg) {
+    thread_args_t* convertedArgs = (thread_args_t*)arg;
+    
+    Player* playerPtr;
+    int32_t playerCount;
+    char packType;
+    char* currentByte;
+    char* pack = allocPack(MAX_PACK_SIZE);
+    
+    while (1) {
+        safeRecv(convertedArgs->sockets.udp, pack, MAX_PACK_SIZE, 0);
         
         switch (pack[0]) {
-            case PTYPE_MAP:
+        //Saņemta MAP pakete
+        case PTYPE_MAP:
             printf("MAP\n");
             //X un Y nobīdes kartē
             int x = 0, y = 0;
-            for (int i = 0; i < tileCount; i++) {
-                tile_new(&tileSet[i], x, y, pack[i+1]);
+            for (int i = 0; i < convertedArgs->tileCount; i++) {
+                tile_new(&convertedArgs->tiles[i], x, y, pack[i+1]);
                 
                 x += TILE_SPRITE_SIZE;
                 
                 //"Pārlec" uz jaunu rindu
-                if (x >= levelWidth) {
+                if (x >= convertedArgs->levelWidth) {
                     x = 0;
                     y += TILE_SPRITE_SIZE;
                 }
             }
-            
-            SDL_SetRenderDrawColor( renderer, 0xFF, 0xFF, 0xFF, 0xFF );
-            SDL_RenderClear( renderer );
-            
-            //Uzzīmē karti
-            for (int i = 0; i < tileCount; i++) {
-                tile_render(&tileSet[i], renderer, &camera, &tileTexture);
-            }
-            SDL_RenderPresent (renderer);
             break;
+        
             
-            
-            case PTYPE_PLAYERS:
+        //Saņemta PLAYERS pakete
+        case PTYPE_PLAYERS:
             //Paketes otrais līdz piektais baits nosaka spēlētāju skaitu
             playerCount = batoi(&pack[1]);
             
-            //Darbojas, kā kursors, kurš glabā vietu, līdz kurai pakete nolasīta
+            //Kursors, kurš nosaka vietu, līdz kurai pakete nolasīta
             currentByte = &pack[5];
             
             for (int i = 0; i < playerCount; i++) {
-                Player* player;
                 bool newPlayer = false;
                 
                 int id = batoi(currentByte);
                 currentByte += 4;
                 
-                if (id == me->id) {
-                    player = me;
+                if (id == convertedArgs->me->id) {
+                    playerPtr = convertedArgs->me;
                 } else {
-                    player = hashmap_int_get(&hm_players, &id);
+                    playerPtr = hashmap_int_get(convertedArgs->hm_players, &id);
                     
-                    //Spēlētājs netika atrasts (spēlei pievienojies jauns)
-                    if (player == NULL) {
-                        player = calloc(1, sizeof(player));
-                        if (player == NULL) {
+                    //Spēlētājs netika atrasts, tātad jāveido jauns
+                    if (playerPtr == NULL) {
+                        playerPtr = calloc(1, sizeof(Player));
+                        if (playerPtr == NULL) {
                             Die(ERR_MALLOC);
                         }
                         newPlayer = true;
@@ -230,29 +292,27 @@ void game_showMainWindow(
                 }
                 
                 //Atjaunojam spēlētāja informāciju
-                player->x = batof(currentByte);
+                playerPtr->x = batof(currentByte);
                 currentByte += 4;
                 
-                player->y = batof(currentByte);
+                playerPtr->y = batof(currentByte);
                 currentByte += 4;
                 
-                player->state = *currentByte;
+                playerPtr->state = *currentByte;
                 currentByte++;
                 
-                player->type = *currentByte;
+                playerPtr->type = *currentByte;
                 currentByte++;
                 
                 if (newPlayer) {
-                    hashmap_int_put(&hm_players, &id, player);
+                    hashmap_int_put(convertedArgs->hm_players, &id, playerPtr);
                 }
-                
-                player_render(player, &camera, &playerTexture, renderer);
-                SDL_RenderPresent(renderer);
             }
-            
             break;
+        
             
-            case PTYPE_SCORE:
+        //Saņemta SCORE pakete
+        case PTYPE_SCORE:
             //nulltais baits ir tipam, tāpēc sākam lasīt no pirmā
             currentByte = &pack[1];
             
@@ -266,22 +326,22 @@ void game_showMainWindow(
                 int32_t id = batoi(currentByte);
                 currentByte += 4;
                 
-                if (id == me->id) {
-                    printf("My score: %d\n", score);
+                
+                if (id ==convertedArgs->me->id) {
+                    convertedArgs->me->score = score;
                 } else {
-                    Player* p = hashmap_int_get(&hm_players, &id);
-                    if (p == NULL) continue;
-                    printf("Player with id %d has score: %d\n", p->id, score);
+                    playerPtr = hashmap_int_get(convertedArgs->hm_players, &id);
+                    if (playerPtr != NULL) {
+                        playerPtr->score = score;
+                    }
                 }
             }
             
             break;
         }
     }
-    
-    //Cleanup
-    SDL_DestroyWindow(window);
-    SDL_DestroyRenderer(renderer);
-    free(tileSet);
-    hashmap_destroy(&hm_players);
+}
+
+void* thread_handleTcpPackets(void* arg) {
+    thread_args_t* convertedArgs = (thread_args_t*)arg;
 }

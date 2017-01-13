@@ -11,6 +11,7 @@ typedef struct {
     int32_t id;
     float x;
     float y;
+    int32_t score;
     unsigned char state;
     unsigned char type;
     char* nick;
