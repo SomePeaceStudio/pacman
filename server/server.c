@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <math.h>
 #include <sys/ioctl.h>
+#include <stdbool.h>
 
 // Shared functions for client and server
 #include "../shared/shared.h"
@@ -52,6 +53,9 @@ void sendMapUpdate(int sock);
 void sendPlayersState(int sock);
 void sendStart(int sock, int32_t playerId);
 void sendScores(int sock);
+void sendJoined(int32_t playerId, char name[20]);
+//Nosūta paketi visiem spēlētājiem. usTCP nosaka TCP/UDP
+void sendBroadcast(char* pack, size_t length, bool useTcp);
 int sendEnd(int sock);
 int handleJoin(int sock, int32_t playerId);
 int readQuitPacket(int sock, int32_t playerId);
@@ -140,9 +144,11 @@ void* actionThread(void *parm){
 };
 
 void* handleClient(void *sockets) {
-    int sockTCP = ((sockets_t*)sockets)->tcp;   // TCP sokets priekš 
-                                                // JOIN,ACK,START,END un QUIT paketēm
-    int sockUDP = ((sockets_t*)sockets)->udp;   // UDP sokets visu pārējo pakešu apstrādei
+    sockets_t* socketStruct = (sockets_t*)sockets;
+    
+    int sockTCP = socketStruct->tcp;   // TCP sokets priekš 
+                                       // JOIN,ACK,START,END un QUIT paketēm
+    int sockUDP = socketStruct->udp;   // UDP sokets visu pārējo pakešu apstrādei
     pthread_t* actionThreadId;      // Pavediens Spēlētāja sūtītām UDP pakešu apstrādei
     int32_t playerId = getId();     // Spēlētāja ID
     object_t* player;               // Norāde uz spēlētāju, spēlētāju sarakstā
@@ -166,7 +172,10 @@ void* handleClient(void *sockets) {
     };
 
     player = getPlayer(STATE,playerId);
-
+    player->sockets = *socketStruct;
+    
+    printf ("TCP socket:  %d, UDP: %d\n", player->sockets.tcp, player->sockets.udp);
+    
     //------- START -------//
     sendStart(sockTCP, playerId);
    
@@ -488,7 +497,10 @@ int handleJoin(int sock, int32_t playerId){
             debug_print("%s\n", "Could not send ACK packet");
             return 1;
         }
-
+        
+        //Sūta JOINED visiem pārējiem pārējiem
+        debug_print("%s\n", "Sending JOINED packet");
+        sendJoined(playerId, playerName);
     }else{
         debug_print("%s\n", "Did not receive JOIN packet");
         return 1;
@@ -604,6 +616,29 @@ void sendMapUpdate(int sock){
     safeSend(sock, pack, packSize, 0);
     if(pack!=0){
     free(pack);
+    }
+}
+
+// ========================================================================= //
+
+void sendJoined(int32_t playerId, char name[20]) {
+    char* pack = allocPack(PSIZE_JOINED);
+    pack[0] = PTYPE_JOINED;       //0. baits
+    itoba(playerId, &pack[1]);    //1. - 4. baits
+    strncpy(&pack[5], name, 20);  //5. - 24. baits
+    sendBroadcast(pack, PSIZE_JOINED, true);
+    free (pack);
+}
+
+// ========================================================================= //
+
+void sendBroadcast(char* pack, size_t length, bool useTcp) {
+    for (objectNode_t* current = STATE; current != NULL; current = current->next) {
+        int sock = useTcp ? current->object.sockets.tcp : current->object.sockets.udp;
+        if (sock != 0) {
+            printf("Sending broadcast to sock: %d\n", sock);
+            safeSend(sock, pack, length, 0);
+        }
     }
 }
 
