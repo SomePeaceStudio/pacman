@@ -586,8 +586,8 @@ void sendScores(int sock){
 
     char* currObj = &pack[5]; // Norāda uz sākumvietu, kur rakstīt objektu
     for(objectNode_t *current = STATE; current != 0; current = current->next){
-        itoba(current->object.id, &currObj[0]);
-        itoba(current->object.points, &currObj[4]);
+        itoba(current->object.points, &currObj[0]);
+        itoba(current->object.id, &currObj[4]);
         currObj += 8;
     }
     debug_print("%s\n", "Sending SCORE packet...");
