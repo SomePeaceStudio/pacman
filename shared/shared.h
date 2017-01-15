@@ -30,6 +30,7 @@
 #define PTYPE_MESSAGE 8
 #define PTYPE_QUIT 9
 #define PTYPE_JOINED 10
+#define PTYPE_PLAYER_DISCONNECTED 11
 
 // Pakešu izmēri tām paketēm, kurām ir fiksēti izmēri (PSIZE - Packet Size)
 #define PSIZE_JOIN 21   // 20 baiti niks + 1 baits tipam
@@ -40,21 +41,19 @@
 #define PSIZE_MOVE 6    // Tips, player.id, virziens
 #define PSIZE_QUIT 5    // Tips, player.id
 #define PSIZE_JOINED 25 // Tips, player.id, player.nick
+#define PSIZE_PLAYER_DISCONNECTED 5
 
 // Fiksēts spēlētāja objekta izmērs priekš PLAYERS tipa paketes
 #define OSIZE_PLAYER 14 // id(int), x(float), y(float), PlayerState, PlayerType
 
 // Virzieni, kādā spēlētāji var kustēties
 // Atbilst protokola ClientMovement enumerācijai
-#define DIR_UNDEFINED -1
+#define DIR_NONE -1
 #define DIR_UP 0
 #define DIR_DOWN 1
 #define DIR_RIGHT 2
 #define DIR_LEFT 3
 
-// Pielietots spēlētāja inicializēšana, norāda, ka spēlētājs nevirzās 
-// nevienā virzienā
-#define DIR_NONE -1
 
 #define MAX_NICK_SIZE 20
 // Paketes maksimālais izmērs, kad pakete tiek devinēta statiski

@@ -54,6 +54,7 @@ void sendPlayersState(int sock);
 void sendStart(int sock, int32_t playerId);
 void sendScores(int sock);
 void sendJoined(int32_t playerId, char name[20]);
+void sendPlayerDisconnected(int32_t playerId);
 //Nosūta paketi visiem spēlētājiem. usTCP nosaka TCP/UDP
 void sendBroadcast(char* pack, size_t length, bool useTcp);
 int sendEnd(int sock);
@@ -212,6 +213,7 @@ void* handleClient(void *sockets) {
     }
 
     debug_print("%s\n", "Client Disconnected, closing threads...");
+    sendPlayerDisconnected(playerId);
     deleteObjectWithId(&STATE, playerId);
     close(sockTCP);
     close(sockUDP);
@@ -626,6 +628,16 @@ void sendJoined(int32_t playerId, char name[20]) {
     strncpy(&pack[5], name, 20);  //5. - 24. baits
     sendBroadcast(pack, PSIZE_JOINED, true);
     free (pack);
+}
+
+// ========================================================================= //
+
+void sendPlayerDisconnected(int32_t playerId) {
+    char* pack = allocPack(PSIZE_PLAYER_DISCONNECTED);
+    pack[0] = PTYPE_PLAYER_DISCONNECTED;
+    itoba(playerId, &pack[1]);
+    sendBroadcast(pack, PSIZE_PLAYER_DISCONNECTED, true);
+    free(pack);
 }
 
 // ========================================================================= //
