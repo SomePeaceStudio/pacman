@@ -18,7 +18,10 @@ HASHMAP_FUNCS_DECLARE(int, int32_t, Player);
 HASHMAP_FUNCS_CREATE(int, int32_t, Player);
 
 void waitForStart();
-char** getScoreText(struct hashmap* hm_players, Player* me); //Atgriež tekstu ar spēlētāju punktiem
+//Atgriež tekstu ar spēlētāju punktiem
+char** getScoreText(struct hashmap* hm_players, Player* me);
+//Uzzīmē spēlētāju nikus un punktu skaitus uz ekrāna
+void renderPlayerScores(SDL_Renderer* renderer, SDL_Color color, TTF_Font* font, char** scores, size_t lineCount);
 size_t getDigitCount(int32_t i); //Atgriež ciparu skaitu skaitlī
 void game_handleInput(int sock, int playerId, SDL_KeyboardEvent* event);
 void game_showMainWindow(Player* me, sockets_t* sock, struct sockaddr_in* serverAddress);
@@ -49,18 +52,22 @@ void game_handleInput(int sock, int playerId, SDL_KeyboardEvent* event) {
     char direction = DIR_NONE;
     switch (event->keysym.sym) {
         case SDLK_w:
+        case SDLK_UP:
         direction = DIR_UP;
         break;
         
         case SDLK_a:
+        case SDLK_LEFT:
         direction = DIR_LEFT;
         break;
         
         case SDLK_s:
+        case SDLK_DOWN:
         direction = DIR_DOWN;
         break;
         
         case SDLK_d:
+        case SDLK_RIGHT:
         direction = DIR_RIGHT;
         break;
     }
@@ -185,20 +192,15 @@ void game_showMainWindow(
     bool showScores = false;
     SDL_Event e;
     
-    TTF_Font* font = TTF_OpenFont("font.TTF", 20);
+    TTF_Font* font = TTF_OpenFont("font.ttf", 20);
     
     if (font == NULL) {
         printf("font == NULL\n");
         exit(1);
     }
     
-    WTexture test;
-    SDL_Color color = {.r = 0, .g = 0, .b = 0, .a = 100};
+    SDL_Color color = {.r = 180, .g = 180, .b = 180, .a = 100};
     SDL_Color bgColor = {.r = 255, .g = 255, .b = 255, .a = 100};
-    if (!wtexture_fromText(&test, renderer, font, color, bgColor, "Hello fox\n how u doin?")) {
-        printf("Failed to load texture\n");
-        exit(1);
-    }
     
     //Main loop
     while (!quit) {
@@ -245,14 +247,8 @@ void game_showMainWindow(
         player_render(me, &camera, &playerTexture, renderer);
         
         if (showScores) {
-            
-            printf("Id: %d, nick: %s, score: %d\n", me->id, me->nick, me->score);
-            
-            void* iter;
-            for (iter = hashmap_iter(&hm_players); iter; iter = hashmap_iter_next(&hm_players, iter)) {
-                Player* pl = hashmap_int_iter_get_data(iter);
-                printf("Id: %d, nick: %s, score: %d\n", pl->id, pl->nick, pl->score);
-            }
+            char ** scores = getScoreText(&hm_players, me);
+            renderPlayerScores(renderer, color, font, scores, hashmap_size(&hm_players) + 1);
         }
         
         //Renderē visu uz ekrāna
@@ -276,24 +272,53 @@ char** getScoreText(struct hashmap* hm_players, Player* me) {
     
     textLines = malloc(playerCount * sizeof(char*));
     
-    
+    //Iterē pāri visiem spēlētājiem (ieskaitot "me")
     void* iter;
     int i;
     for (iter = hashmap_iter(hm_players), i = 0; i < playerCount; iter = hashmap_iter_next(hm_players, iter), i++) {
         Player* pl = hashmap_int_iter_get_data(iter);
         
+        //Ja pl ir null, tad visi pārējie spēlētāji jau ir apskatīti
+        //Jāpievieno vel tikai savs rezultāts
         if (pl == NULL) {
             pl = me;
         }
         
-        //Formāts: "niks: 123\n"
+        //Ja spēlētājam nav nika, tad izveidojam to formā "[ID-13]"
+        if (pl->nick == NULL) {
+            size_t nickLength = 6 + getDigitCount(pl->id);
+            pl->nick = malloc (nickLength);
+            if (pl->nick == NULL) {
+                Die(ERR_MALLOC);
+            }
+            snprintf(pl->nick, nickLength, "[ID-%d]", pl->id);
+        }
+        
+        //Formāts: "niks: 123\0"
         size_t lineLength = strlen(pl->nick) + 2 + getDigitCount(pl->score) + 1;
         
         textLines[i] = malloc(lineLength);
-        snprintf(textLines[i], lineLength, "%s: %d\n", pl->nick, pl->score);
+        snprintf(textLines[i], lineLength, "%s: %d", pl->nick, pl->score);
     }
     
     return textLines;
+}
+
+void renderPlayerScores(SDL_Renderer* renderer, SDL_Color color, TTF_Font* font, char** scores, size_t lineCount) {
+    //Vieta uz ekrāna, kur rezultāts tiks parādīts
+    SDL_Rect targetRect = {.x = 8, .y = 0};
+    
+    //hashmap izmēram + 1, jo "me" nav iekļauts hashmap'ā
+    for (int i = 0; i < lineCount; i++) {
+        SDL_Surface* textSurface = TTF_RenderText_Solid(font, scores[i], color);
+        targetRect.w = textSurface->w;
+        targetRect.h = textSurface->h;
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, textSurface);
+        SDL_RenderCopy(renderer, texture, NULL, &targetRect);
+        targetRect.y += textSurface->h;
+        SDL_FreeSurface(textSurface);
+        
+    }
 }
 
 //Darbojas ātri, jo nav lieki aprēķini

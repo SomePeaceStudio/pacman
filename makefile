@@ -28,7 +28,7 @@ client_gui: client/main.c $(HEADERS_CLIENT_GUI) mkdir
 	$(CC) $(CFLAGS_CLIENT_GUI) $(SOURCES_CLIENT_GUI) -o $(BIN_CLIENT_GUI) $(LIBS_CLIENT_GUI)
 	cp client/res/tiles.png bin/
 	cp client/res/players.png bin/
-	cp client/res/font.TTF bin/
+	cp client/res/font.ttf bin/
 
 server: server/server.c shared/shared.h shared/threads.h mkdir
 	$(CC) server/server.c shared/shared.c shared/threads.c $(CFLAGS) -o $(BIN_SERVER) 
@@ -39,8 +39,8 @@ clean:
 rebuild: clean all
 
 mkdir:
-	mkdir -p bin #-p, lai izveidotu mapi, ja tādas nav
+	mkdir -p bin
 
 debug: CFLAGS+= -g
-debug: CFLAGS_CLIENT+= -g
+debug: CFLAGS_CLIENT_GUI+= -g
 debug: all

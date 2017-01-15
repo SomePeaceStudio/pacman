@@ -232,6 +232,8 @@ login_window* login_createWindow(int* argc,
     //Uzstāda pogu un tās callback funkciju
     GtkWidget* button = gtk_button_new_with_label ("Connect");
     gtk_grid_attach (GTK_GRID (grid), button, 0, 3, 2, 1);
+    
+    //Kad nospiež pogu "Connect"
     g_signal_connect (
         button,
         "clicked",
@@ -239,7 +241,8 @@ login_window* login_createWindow(int* argc,
         loginWindow
     );
     loginWindow->button = button;
-    
+
+    //Kad nospiež loga "X" pogu
     g_signal_connect(
         window,
         "delete_event",

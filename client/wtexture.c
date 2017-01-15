@@ -3,7 +3,6 @@
 #include "wtexture.h"
 #include "../shared/shared.h"
 
-
 void wtexture_fromFile(WTexture* wtexture, SDL_Renderer* renderer, const char* path) {
     if (wtexture == NULL) {
         wtexture = malloc(sizeof(WTexture));
@@ -11,6 +10,7 @@ void wtexture_fromFile(WTexture* wtexture, SDL_Renderer* renderer, const char* p
             Die(ERR_MALLOC);
         }
     } else {
+        //Ja kaut kas struktūrā jau glabājas, tad atbrīvo resursus
         wtexture_free(wtexture);
     }
     
@@ -51,6 +51,7 @@ bool wtexture_fromText(WTexture* wtexture, SDL_Renderer* renderer, TTF_Font* fon
             Die(ERR_MALLOC);
         }
     } else {
+        //Ja kaut kas struktūrā jau glabājas, tad atbrīvo resursus
         wtexture_free(wtexture);
     }
     
