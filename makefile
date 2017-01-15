@@ -6,9 +6,9 @@ CC=gcc
 CFLAGS=-pthread -lm
 
 #Bibliotēkas, ko izmanto gui klients
-LIBS_CLIENT=`pkg-config --libs gtk+-3.0` -lSDL2 -lSDL2_image
+LIBS_CLIENT_GUI=`pkg-config --libs gtk+-3.0` -lSDL2 -lSDL2_image -lSDL2_ttf
 #Kompilatora opcijas priekš gui klienta
-CFLAGS_CLIENT=`pkg-config --cflags gtk+-3.0`
+CFLAGS_CLIENT_GUI=`pkg-config --cflags gtk+-3.0`
 
 #Gui klientam nepieciešamie faili
 HEADERS_CLIENT_GUI=client/login.h client/game.h client/tile.h client/player.h client/network.h shared/hashmap.h
@@ -25,9 +25,10 @@ client: client/client.c shared/shared.h mkdir
 	$(CC) client/client.c shared/shared.c $(CFLAGS) -o $(BIN_CLIENT)  
 
 client_gui: client/main.c $(HEADERS_CLIENT_GUI) mkdir
-	$(CC) $(CFLAGS_CLIENT) $(SOURCES_CLIENT_GUI) -o $(BIN_CLIENT_GUI) $(LIBS_CLIENT)
+	$(CC) $(CFLAGS_CLIENT_GUI) $(SOURCES_CLIENT_GUI) -o $(BIN_CLIENT_GUI) $(LIBS_CLIENT_GUI)
 	cp client/res/tiles.png bin/
 	cp client/res/players.png bin/
+	cp client/res/font.TTF bin/
 
 server: server/server.c shared/shared.h shared/threads.h mkdir
 	$(CC) server/server.c shared/shared.c shared/threads.c $(CFLAGS) -o $(BIN_SERVER) 
@@ -38,7 +39,7 @@ clean:
 rebuild: clean all
 
 mkdir:
-	mkdir -p bin
+	mkdir -p bin #-p, lai izveidotu mapi, ja tādas nav
 
 debug: CFLAGS+= -g
 debug: CFLAGS_CLIENT+= -g

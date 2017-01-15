@@ -41,7 +41,6 @@ struct hashmap_entry {
 #endif
 };
 
-
 /*
  * Enforce a maximum 0.75 load factor.
  */

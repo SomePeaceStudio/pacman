@@ -235,7 +235,6 @@ int hashmap_compare_string(const void *a, const void *b);
  */
 void *hashmap_alloc_key_string(const void *key);
 
-
 #ifdef HASHMAP_METRICS
 /*
  * Return the load factor in percent (0 - 100).
@@ -253,6 +252,5 @@ double hashmap_collisions_mean(const struct hashmap *map);
  */
 double hashmap_collisions_variance(const struct hashmap *map);
 #endif
-
 
 #endif /* HASHMAP_H */

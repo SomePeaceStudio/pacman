@@ -1,5 +1,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
 #include <stdbool.h>
 #include <pthread.h>
 
@@ -16,24 +17,11 @@
 HASHMAP_FUNCS_DECLARE(int, int32_t, Player);
 HASHMAP_FUNCS_CREATE(int, int32_t, Player);
 
-
-//Struktūra, ko padot pthread_create kā argumentu
-typedef struct {
-    sockets_t sockets;
-    uint32_t tileCount;
-    uint32_t levelWidth;
-    Player* me;
-    Tile* tiles;
-    struct hashmap* hm_players;
-} thread_args_t;
-
 void waitForStart();
+char** getScoreText(struct hashmap* hm_players, Player* me); //Atgriež tekstu ar spēlētāju punktiem
+size_t getDigitCount(int32_t i); //Atgriež ciparu skaitu skaitlī
 void game_handleInput(int sock, int playerId, SDL_KeyboardEvent* event);
 void game_showMainWindow(Player* me, sockets_t* sock, struct sockaddr_in* serverAddress);
-
-//Funkcijas, ko izpildīs divi papildus pavedieni
-void* thread_handleUdpPackets(void* arg);
-void* thread_handleTcpPackets(void* arg);
 
 
 //TODO: pievienot time-out gadījumam, ja serveris neatbild
@@ -58,7 +46,7 @@ void waitForStart(
 }
 
 void game_handleInput(int sock, int playerId, SDL_KeyboardEvent* event) {
-    char direction = DIR_UNDEFINED;
+    char direction = DIR_NONE;
     switch (event->keysym.sym) {
         case SDLK_w:
         direction = DIR_UP;
@@ -92,6 +80,9 @@ void game_showMainWindow(
     WTexture tileTexture;
     WTexture playerTexture;
     
+    memset(&tileTexture, 0, sizeof(WTexture));
+    memset(&playerTexture, 0, sizeof(WTexture));
+    
     //Visi spēlētāju dati tiek glabāti heštabulā, kur atslēga ir spēlētāja id
     struct hashmap hm_players;
     
@@ -99,6 +90,10 @@ void game_showMainWindow(
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         printf( "SDL could not initialize! SDL Error: %s\n", SDL_GetError() );
 		exit(1);
+    }
+    
+    if(TTF_Init() == -1){
+        printf( "SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError() );
     }
     
     //Uzstāda texture filtering = linear
@@ -167,15 +162,12 @@ void game_showMainWindow(
     }
     
     SDL_SetWindowSize(window, levelWidth, mapHeight * TILE_SPRITE_SIZE);
-    
-    bool quit = false;
-    SDL_Event e;
-    
-    
-    
-    //Start thread
+
+    //Pavedieni, kas saņems attiecīgi TCP un UDP paketes
     pthread_t tcpThread;
     pthread_t udpThread;
+    
+    //Info, kas japadod TCP un UDP pavedieniem
     thread_args_t threadArgs = {
         .sockets = *sock,
         .tileCount = tileCount,
@@ -185,7 +177,28 @@ void game_showMainWindow(
         .hm_players = &hm_players
     };
     
-    pthread_create(&udpThread, NULL, thread_handleUdpPackets, &threadArgs);
+    //Izveidojam pavedienus
+    pthread_create(&udpThread, NULL, net_handleUdpPackets, &threadArgs);
+    pthread_create(&tcpThread, NULL, net_handleTcpPackets, &threadArgs);
+    
+    bool quit = false;
+    bool showScores = false;
+    SDL_Event e;
+    
+    TTF_Font* font = TTF_OpenFont("font.TTF", 20);
+    
+    if (font == NULL) {
+        printf("font == NULL\n");
+        exit(1);
+    }
+    
+    WTexture test;
+    SDL_Color color = {.r = 0, .g = 0, .b = 0, .a = 100};
+    SDL_Color bgColor = {.r = 255, .g = 255, .b = 255, .a = 100};
+    if (!wtexture_fromText(&test, renderer, font, color, bgColor, "Hello fox\n how u doin?")) {
+        printf("Failed to load texture\n");
+        exit(1);
+    }
     
     //Main loop
     while (!quit) {
@@ -193,12 +206,24 @@ void game_showMainWindow(
         //Event loop
         while( SDL_PollEvent( &e ) != 0 ) {
             switch (e.type) {
-                case SDL_QUIT:
+            case SDL_QUIT:
                 quit = true;
                 break;
+            
                 
-                case SDL_KEYDOWN:
-                game_handleInput(sock->udp, me->id, &e.key);
+            case SDL_KEYDOWN:
+                if (e.key.keysym.sym == SDLK_TAB) {
+                    showScores = true;
+                } else {
+                    game_handleInput(sock->udp, me->id, &e.key);
+                }
+                break;
+                
+                
+            case SDL_KEYUP:
+                if (e.key.keysym.sym == SDLK_TAB) {
+                    showScores = false;
+                }
                 break;
             }
         }
@@ -219,6 +244,17 @@ void game_showMainWindow(
         }
         player_render(me, &camera, &playerTexture, renderer);
         
+        if (showScores) {
+            
+            printf("Id: %d, nick: %s, score: %d\n", me->id, me->nick, me->score);
+            
+            void* iter;
+            for (iter = hashmap_iter(&hm_players); iter; iter = hashmap_iter_next(&hm_players, iter)) {
+                Player* pl = hashmap_int_iter_get_data(iter);
+                printf("Id: %d, nick: %s, score: %d\n", pl->id, pl->nick, pl->score);
+            }
+        }
+        
         //Renderē visu uz ekrāna
         SDL_RenderPresent (renderer);
     }
@@ -228,120 +264,49 @@ void game_showMainWindow(
     SDL_DestroyRenderer(renderer);
     free(tileSet);
     hashmap_destroy(&hm_players);
+    wtexture_free(&tileTexture);
+    wtexture_free(&playerTexture);
+    SDL_Quit();
+    TTF_Quit();
 }
 
-void* thread_handleUdpPackets(void* arg) {
-    thread_args_t* convertedArgs = (thread_args_t*)arg;
+char** getScoreText(struct hashmap* hm_players, Player* me) {
+    size_t playerCount = hashmap_size(hm_players) + 1; //+1 priekš "me"
+    char** textLines;
     
-    Player* playerPtr;
-    int32_t playerCount;
-    char packType;
-    char* currentByte;
-    char* pack = allocPack(MAX_PACK_SIZE);
+    textLines = malloc(playerCount * sizeof(char*));
     
-    while (1) {
-        safeRecv(convertedArgs->sockets.udp, pack, MAX_PACK_SIZE, 0);
+    
+    void* iter;
+    int i;
+    for (iter = hashmap_iter(hm_players), i = 0; i < playerCount; iter = hashmap_iter_next(hm_players, iter), i++) {
+        Player* pl = hashmap_int_iter_get_data(iter);
         
-        switch (pack[0]) {
-        //Saņemta MAP pakete
-        case PTYPE_MAP:
-            printf("MAP\n");
-            //X un Y nobīdes kartē
-            int x = 0, y = 0;
-            for (int i = 0; i < convertedArgs->tileCount; i++) {
-                tile_new(&convertedArgs->tiles[i], x, y, pack[i+1]);
-                
-                x += TILE_SPRITE_SIZE;
-                
-                //"Pārlec" uz jaunu rindu
-                if (x >= convertedArgs->levelWidth) {
-                    x = 0;
-                    y += TILE_SPRITE_SIZE;
-                }
-            }
-            break;
-        
-            
-        //Saņemta PLAYERS pakete
-        case PTYPE_PLAYERS:
-            //Paketes otrais līdz piektais baits nosaka spēlētāju skaitu
-            playerCount = batoi(&pack[1]);
-            
-            //Kursors, kurš nosaka vietu, līdz kurai pakete nolasīta
-            currentByte = &pack[5];
-            
-            for (int i = 0; i < playerCount; i++) {
-                bool newPlayer = false;
-                
-                int id = batoi(currentByte);
-                currentByte += 4;
-                
-                if (id == convertedArgs->me->id) {
-                    playerPtr = convertedArgs->me;
-                } else {
-                    playerPtr = hashmap_int_get(convertedArgs->hm_players, &id);
-                    
-                    //Spēlētājs netika atrasts, tātad jāveido jauns
-                    if (playerPtr == NULL) {
-                        playerPtr = calloc(1, sizeof(Player));
-                        if (playerPtr == NULL) {
-                            Die(ERR_MALLOC);
-                        }
-                        newPlayer = true;
-                    }
-                }
-                
-                //Atjaunojam spēlētāja informāciju
-                playerPtr->x = batof(currentByte);
-                currentByte += 4;
-                
-                playerPtr->y = batof(currentByte);
-                currentByte += 4;
-                
-                playerPtr->state = *currentByte;
-                currentByte++;
-                
-                playerPtr->type = *currentByte;
-                currentByte++;
-                
-                if (newPlayer) {
-                    hashmap_int_put(convertedArgs->hm_players, &id, playerPtr);
-                }
-            }
-            break;
-        
-            
-        //Saņemta SCORE pakete
-        case PTYPE_SCORE:
-            //nulltais baits ir tipam, tāpēc sākam lasīt no pirmā
-            currentByte = &pack[1];
-            
-            playerCount = batoi(currentByte);
-            currentByte += 4;
-            
-            for (int i = 0; i < playerCount; i++) {
-                int32_t score = batoi(currentByte);
-                currentByte += 4;
-                
-                int32_t id = batoi(currentByte);
-                currentByte += 4;
-                
-                
-                if (id ==convertedArgs->me->id) {
-                    convertedArgs->me->score = score;
-                } else {
-                    playerPtr = hashmap_int_get(convertedArgs->hm_players, &id);
-                    if (playerPtr != NULL) {
-                        playerPtr->score = score;
-                    }
-                }
-            }
-            
-            break;
+        if (pl == NULL) {
+            pl = me;
         }
+        
+        //Formāts: "niks: 123\n"
+        size_t lineLength = strlen(pl->nick) + 2 + getDigitCount(pl->score) + 1;
+        
+        textLines[i] = malloc(lineLength);
+        snprintf(textLines[i], lineLength, "%s: %d\n", pl->nick, pl->score);
     }
+    
+    return textLines;
 }
 
-void* thread_handleTcpPackets(void* arg) {
-    thread_args_t* convertedArgs = (thread_args_t*)arg;
+//Darbojas ātri, jo nav lieki aprēķini
+size_t getDigitCount(int32_t i) {
+    i = abs(i);
+    if (i < 10) return 1;
+    if (i < 100) return 2;
+    if (i < 1000) return 3;
+    if (i < 10000) return 4;
+    if (i < 100000) return 5;
+    if (i < 1000000) return 6;
+    if (i < 10000000) return 7;
+    if (i < 100000000) return 8;
+    if (i < 1000000000) return 9;
+    if (i < 10000000000) return 10; //32 bitos nebūs vairāk par 10 cipariem
 }
