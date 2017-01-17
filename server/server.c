@@ -87,7 +87,7 @@ void* mainGameLoop(){
     while(1){
         // Pavirza spēlētājus uz priekšu
         updateState();
-        sleep(1);
+        usleep(250000); //250 milisekundes
     
         // Nosaka vai ir spēles beigas 
         END = isGameEnd();
@@ -209,7 +209,8 @@ void* handleClient(void *sockets) {
         // Sūta Spēlētāju punktus
         sendScores(sockUDP);
 
-        sleep(1);
+        // sleep(1);
+        usleep(250000); //250 milisekundes
     }
 
     debug_print("%s\n", "Client Disconnected, closing threads...");
