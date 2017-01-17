@@ -82,7 +82,7 @@ void game_showMainWindow(
     SDL_Surface* surface = NULL;
     SDL_Renderer* renderer = NULL;
     //Domāts apciprpšanai
-    SDL_Rect camera = { 0, 0, 100, 100 };
+    SDL_Rect camera = { 0, 0, 500, 500 };
     int mapWidth, mapHeight, tileCount;
     int levelWidth, levelHeight;
     int windowWidth, windowHeight;
@@ -117,8 +117,8 @@ void game_showMainWindow(
         "Pacman",
         SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED,
-        100,
-        100,
+        500,
+        500,
         SDL_WINDOW_RESIZABLE
     );
     
@@ -180,6 +180,8 @@ void game_showMainWindow(
         return;
     }
     
+    //Ja līmenis ir gan par platu, gan par augstu, tad maksimizē logu,
+    //  citādi, izstiepj vajadzīgajā virzienā
     if (levelWidth > dm.w && levelHeight > dm.h) {
         SDL_MaximizeWindow(window);
     } else {
@@ -189,11 +191,6 @@ void game_showMainWindow(
             clipMax(levelHeight, dm.h)
         );
     }
-    
-    //Sagatavo kameru apcirpšanai
-    SDL_GetWindowSize(window, &windowWidth, &windowHeight);
-    camera.w = windowWidth;
-    camera.h = windowHeight;
 
     //Pavedieni, kas saņems attiecīgi TCP un UDP paketes
     pthread_t tcpThread;
@@ -258,6 +255,14 @@ void game_showMainWindow(
             case SDL_KEYUP:
                 if (e.key.keysym.sym == SDLK_TAB) {
                     showScores = false;
+                }
+                break;
+                
+                
+            case SDL_WINDOWEVENT:
+                if (e.window.event == SDL_WINDOWEVENT_RESIZED) {
+                    camera.w = windowWidth = e.window.data1;
+                    camera.h = windowHeight = e.window.data2;
                 }
                 break;
             }
