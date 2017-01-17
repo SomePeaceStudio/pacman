@@ -608,7 +608,6 @@ void sendMapUpdate(int sock){
     memcpy(&pack[1], *MAP, MAPWIDTH * MAPHEIGHT);
     
     printf("MAP packet:\n");
-    printPacket(pack, packSize);
     
     printMappacPretty(&pack[1], MAPWIDTH, MAPHEIGHT);
     // Send MAP packet
