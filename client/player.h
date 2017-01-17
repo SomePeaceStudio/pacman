@@ -4,7 +4,7 @@
 #include "wtexture.h"
 
 //Spēlētāja ikonas jeb texture paltums un augstums
-#define PLAYER_SPRITE_SIZE 50
+#define PLAYER_SPRITE_SIZE 25
 #define TOTAL_PLAYER_SPRITES 2
 
 typedef struct {

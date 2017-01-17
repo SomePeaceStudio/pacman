@@ -13,6 +13,8 @@
 //72, jo serveris vairāk nesūtīs (1024 baitu buferī vairāk nesaiet)
 #define PLAYER_COUNT_MAX 72
 
+#define FONT_SIZE 15
+
 //Nodefinē hashmap priekš int atslēgām un Player tipa datiem
 HASHMAP_FUNCS_DECLARE(int, int32_t, Player);
 HASHMAP_FUNCS_CREATE(int, int32_t, Player);
@@ -192,7 +194,7 @@ void game_showMainWindow(
     bool showScores = false;
     SDL_Event e;
     
-    TTF_Font* font = TTF_OpenFont("font.ttf", 20);
+    TTF_Font* font = TTF_OpenFont("font.ttf", FONT_SIZE);
     
     if (font == NULL) {
         printf("font == NULL\n");

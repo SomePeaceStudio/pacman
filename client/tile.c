@@ -40,28 +40,28 @@ void tile_init() {
     textureClips[MTYPE_EMPTY].w = TILE_SPRITE_SIZE;
     textureClips[MTYPE_EMPTY].h = TILE_SPRITE_SIZE;
     
-    textureClips[MTYPE_DOT].x = 50;
+    textureClips[MTYPE_DOT].x = TILE_SPRITE_SIZE;
     textureClips[MTYPE_DOT].y = 0;
     textureClips[MTYPE_DOT].w = TILE_SPRITE_SIZE;
     textureClips[MTYPE_DOT].h = TILE_SPRITE_SIZE;
     
-    textureClips[MTYPE_WALL].x = 100;
+    textureClips[MTYPE_WALL].x = TILE_SPRITE_SIZE * 2;
     textureClips[MTYPE_WALL].y = 0;
     textureClips[MTYPE_WALL].w = TILE_SPRITE_SIZE;
     textureClips[MTYPE_WALL].h = TILE_SPRITE_SIZE;
     
     textureClips[MTYPE_POWER].x = 0;
-    textureClips[MTYPE_POWER].y = 50;
+    textureClips[MTYPE_POWER].y = TILE_SPRITE_SIZE;
     textureClips[MTYPE_POWER].w = TILE_SPRITE_SIZE;
     textureClips[MTYPE_POWER].h = TILE_SPRITE_SIZE;
     
-    textureClips[MTYPE_INVINCIBILITY].x = 50;
-    textureClips[MTYPE_INVINCIBILITY].y = 50;
+    textureClips[MTYPE_INVINCIBILITY].x = TILE_SPRITE_SIZE;
+    textureClips[MTYPE_INVINCIBILITY].y = TILE_SPRITE_SIZE;
     textureClips[MTYPE_INVINCIBILITY].w = TILE_SPRITE_SIZE;
     textureClips[MTYPE_INVINCIBILITY].h = TILE_SPRITE_SIZE;
     
-    textureClips[MTYPE_SCORE].x = 100;
-    textureClips[MTYPE_SCORE].y = 50;
+    textureClips[MTYPE_SCORE].x = TILE_SPRITE_SIZE * 2;
+    textureClips[MTYPE_SCORE].y = TILE_SPRITE_SIZE;
     textureClips[MTYPE_SCORE].w = TILE_SPRITE_SIZE;
     textureClips[MTYPE_SCORE].h = TILE_SPRITE_SIZE;
 }

@@ -6,7 +6,7 @@
 #include "wtexture.h"
 
 //Rūtiņas platums / garums
-#define TILE_SPRITE_SIZE 50
+#define TILE_SPRITE_SIZE 25
 //Dažādo "šunu" skaits
 #define TOTAL_TILE_SPRITES 6
 
