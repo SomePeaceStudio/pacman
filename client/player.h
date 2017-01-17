@@ -20,5 +20,12 @@ typedef struct {
 //Šis jāizsauc pirms var renderēt spēlētājus
 void player_init();
 void player_render(Player* player, SDL_Rect* camera, WTexture* wt, SDL_Renderer* renderer);
+void player_setCamera(
+    Player* player,
+    SDL_Rect* camera,
+    int screenWidth,
+    int screenheight,
+    int levelWidth,
+    int levelHeight);
 
 #endif //PLAYER_H

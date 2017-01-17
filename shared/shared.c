@@ -178,3 +178,32 @@ void ftoba(float number, unsigned char buffer[4]) {
     int32_t* intPtr = (int32_t*)&number;
     itoba(*intPtr, buffer);
 }
+
+// ========================================================================= //
+
+int clipMin(int number, int min) {
+    if (number < min) return min;
+    return number;
+}
+
+// ========================================================================= //
+
+int clipMax(int number, int max) {
+    if (number > max) return max;
+    return number;
+}
+
+// ========================================================================= //
+
+int clipBoth(int number, int min, int max) {
+    //Ja nepareizs intervāls, tad samaina galapunktus vietām
+    if (min > max) {
+        int temp = min;
+        min = max;
+        max = temp;
+    }
+    
+    number = clipMin(number, min);
+    number = clipMax(number, max);
+    return number;
+}

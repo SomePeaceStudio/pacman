@@ -28,7 +28,6 @@ size_t getDigitCount(int32_t i); //Atgriež ciparu skaitu skaitlī
 void game_handleInput(int sock, int playerId, SDL_KeyboardEvent* event);
 void game_showMainWindow(Player* me, sockets_t* sock, struct sockaddr_in* serverAddress);
 
-
 //TODO: pievienot time-out gadījumam, ja serveris neatbild
 //TODO: pārcelt uz citu pavedienu, lai varētu aizvērt logu, ja serveris neatbild
 void waitForStart(
@@ -82,9 +81,11 @@ void game_showMainWindow(
     SDL_Window* window = NULL;
     SDL_Surface* surface = NULL;
     SDL_Renderer* renderer = NULL;
-    SDL_Rect camera = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
+    //Domāts apciprpšanai
+    SDL_Rect camera = { 0, 0, 100, 100 };
     int mapWidth, mapHeight, tileCount;
-    int levelWidth;
+    int levelWidth, levelHeight;
+    int windowWidth, windowHeight;
     Tile* tileSet; //Tile masīvs
     WTexture tileTexture;
     WTexture playerTexture;
@@ -110,18 +111,19 @@ void game_showMainWindow(
         printf( "Warning: Linear texture filtering not enabled!\n");
     }
     
-    //Izveido logu
+    //Izveido 100x100 px logu (izmēriem nav nozīmes, jo tie tapat mainīsies,
+    //  kad no servera tiks saņemta karte)
     window = SDL_CreateWindow(
         "Pacman",
         SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED,
-        SCREEN_WIDTH,
-        SCREEN_HEIGHT,
-        SDL_WINDOW_SHOWN
+        100,
+        100,
+        SDL_WINDOW_RESIZABLE
     );
     
     if (window == NULL) {
-        printf("Window could not be created! SDL Error: %s\n", SDL_GetError() );
+        printf("Window could not be created! SDL Error: %s\n", SDL_GetError());
         exit(1);
     }
     
@@ -158,19 +160,40 @@ void game_showMainWindow(
     
     //Uzzīmē logu
     surface = SDL_GetWindowSurface(window);
-    SDL_FillRect( surface, NULL, SDL_MapRGB( surface->format, 0xFF, 0xFF, 0xFF ) );
+    SDL_FillRect( surface, NULL, SDL_MapRGB( surface->format, 0x33, 0x33, 0x33 ) );
     SDL_UpdateWindowSurface( window );
     
     //Gaida spēlēs sākumu no servera
     waitForStart(sock, me, &mapWidth, &mapHeight);
     tileCount = mapWidth * mapHeight;
-    levelWidth = mapWidth * TILE_SPRITE_SIZE;
     tileSet = calloc(tileCount, sizeof(Tile));
     if (tileSet == NULL) {
         Die(ERR_MALLOC);
     }
     
-    SDL_SetWindowSize(window, levelWidth, mapHeight * TILE_SPRITE_SIZE);
+    levelWidth = mapWidth * TILE_SPRITE_SIZE;
+    levelHeight = mapHeight * TILE_SPRITE_SIZE;
+    
+    SDL_DisplayMode dm;
+    if (SDL_GetDesktopDisplayMode(0, &dm) != 0) {
+        printf("SDL_GetDesktopDisplayMode failed: %s", SDL_GetError());
+        return;
+    }
+    
+    if (levelWidth > dm.w && levelHeight > dm.h) {
+        SDL_MaximizeWindow(window);
+    } else {
+        SDL_SetWindowSize(
+            window,
+            clipMax(levelWidth, dm.w),
+            clipMax(levelHeight, dm.h)
+        );
+    }
+    
+    //Sagatavo kameru apcirpšanai
+    SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+    camera.w = windowWidth;
+    camera.h = windowHeight;
 
     //Pavedieni, kas saņems attiecīgi TCP un UDP paketes
     pthread_t tcpThread;
@@ -180,7 +203,11 @@ void game_showMainWindow(
     thread_args_t threadArgs = {
         .sockets = *sock,
         .tileCount = tileCount,
-        .levelWidth = levelWidth,
+        .levelWidth = &levelWidth,
+        .levelHeight = &levelHeight,
+        .windowWidth = &windowWidth,
+        .windowHeight = &windowHeight,
+        .camera = &camera,
         .me = me,
         .tiles = tileSet,
         .hm_players = &hm_players
@@ -194,15 +221,15 @@ void game_showMainWindow(
     bool showScores = false;
     SDL_Event e;
     
+    //Fonts teksta renderēšanai
     TTF_Font* font = TTF_OpenFont("font.ttf", FONT_SIZE);
-    
     if (font == NULL) {
         printf("font == NULL\n");
         exit(1);
     }
     
+    //Teksta krāsa
     SDL_Color color = {.r = 180, .g = 180, .b = 180, .a = 100};
-    SDL_Color bgColor = {.r = 255, .g = 255, .b = 255, .a = 100};
     
     //Main loop
     while (!quit) {
@@ -216,6 +243,10 @@ void game_showMainWindow(
             
                 
             case SDL_KEYDOWN:
+                if (e.key.keysym.sym == SDLK_f) {
+                    SDL_MaximizeWindow(window);
+                }
+                
                 if (e.key.keysym.sym == SDLK_TAB) {
                     showScores = true;
                 } else {
@@ -231,7 +262,6 @@ void game_showMainWindow(
                 break;
             }
         }
-        
         SDL_RenderClear(renderer);
         
         //Renderē tiles (pagaidām tikai atmiņā, nevis uz ekrāna)

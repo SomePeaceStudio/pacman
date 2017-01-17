@@ -52,7 +52,7 @@ void* net_handleUdpPackets(void* arg) {
                 x += TILE_SPRITE_SIZE;
                 
                 //"Pārlec" uz jaunu rindu
-                if (x >= convertedArgs->levelWidth) {
+                if (x >= *convertedArgs->levelWidth) {
                     x = 0;
                     y += TILE_SPRITE_SIZE;
                 }
@@ -90,10 +90,10 @@ void* net_handleUdpPackets(void* arg) {
                 }
                 
                 //Atjaunojam spēlētāja informāciju
-                playerPtr->x = batof(currentByte);
+                playerPtr->x = batof(currentByte) * PLAYER_SPRITE_SIZE;
                 currentByte += 4;
                 
-                playerPtr->y = batof(currentByte);
+                playerPtr->y = batof(currentByte) * PLAYER_SPRITE_SIZE;
                 currentByte += 4;
                 
                 playerPtr->state = *currentByte;
@@ -104,6 +104,16 @@ void* net_handleUdpPackets(void* arg) {
                 
                 if (newPlayer) {
                     hashmap_int_put(convertedArgs->hm_players, &id, playerPtr);
+                } else if (playerPtr == convertedArgs->me) {
+                    printf("Setting the camera\n");
+                    player_setCamera(
+                        convertedArgs->me,
+                        convertedArgs->camera,
+                        *convertedArgs->windowWidth,
+                        *convertedArgs->windowHeight,
+                        *convertedArgs->levelWidth,
+                        *convertedArgs->levelHeight
+                    );
                 }
             }
             break;

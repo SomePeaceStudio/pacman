@@ -140,4 +140,9 @@ void itoba (int32_t integer, unsigned char buffer[4]);
 float batof(const unsigned char bytes[4]);
 void ftoba(float number, unsigned char buffer[4]);
 
+//Apcērpj skaitli no augšas, apakšas vai abiem
+int clipMin(int number, int min);
+int clipMax(int number, int max);
+int clipBoth(int number, int min, int max);
+
 #endif //SHARED_H

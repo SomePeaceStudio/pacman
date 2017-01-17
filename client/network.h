@@ -11,7 +11,11 @@
 typedef struct {
     sockets_t sockets;
     uint32_t tileCount;
-    uint32_t levelWidth;
+    uint32_t* levelWidth;
+    uint32_t* levelHeight;
+    uint32_t* windowWidth;
+    uint32_t* windowHeight;
+    SDL_Rect* camera;
     Player* me;
     Tile* tiles;
     struct hashmap* hm_players;

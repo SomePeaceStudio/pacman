@@ -9,8 +9,8 @@ void player_render(Player* player, SDL_Rect* camera, WTexture* wt, SDL_Renderer*
     wtexture_render(
         wt,
         renderer,
-        player->x * TILE_SPRITE_SIZE,
-        player->y * TILE_SPRITE_SIZE,
+        player->x - camera->x,
+        player->y - camera->y,
         &textureClips[player->type],
         0,
         NULL,
@@ -31,4 +31,19 @@ void player_init() {
     textureClips[PLTYPE_GHOST].y = 0;
     textureClips[PLTYPE_GHOST].w = PLAYER_SPRITE_SIZE;
     textureClips[PLTYPE_GHOST].h = PLAYER_SPRITE_SIZE;
+}
+
+void player_setCamera(
+    Player* player,
+    SDL_Rect* camera,
+    int screenWidth,
+    int screenheight,
+    int levelWidth,
+    int levelHeight) {
+    
+    camera->x = (player->x + PLAYER_SPRITE_SIZE/2) - screenWidth/2;
+    camera->y = (player->y + PLAYER_SPRITE_SIZE/2) - screenheight/2;
+    
+    camera->x = clipBoth(camera->x, 0, levelWidth - camera->w);
+    camera->y = clipBoth(camera->y, 0, levelHeight - camera->h);
 }
