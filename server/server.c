@@ -28,6 +28,7 @@ typedef struct objectNode{
 int32_t ID = 1;
 objectNode_t *STATE;
 
+char* mapFileName;
 char** MAP;
 int MAPHEIGHT;
 int MAPWIDTH;
@@ -253,7 +254,9 @@ int main(int argc, char *argv[]) {
 
     // ---------------------- Inicializē Karti ----------------------------- //
 
-    getNewMap(argv[2]);
+    mapFileName = malloc(strlen(argv[2] + 1));
+    strcpy(mapFileName, argv[2]);
+    getNewMap(mapFileName);
 
     // --------------------------------------------------------------------- //
 
@@ -836,8 +839,7 @@ object_t* getPlayer(objectNode_t *start, int id){
 void resetGame(){
     // Ielasām jaunu mani no karšu kolekcijas
     // TODO: izveidot karšu kolekciju
-    // TODO: iegūt jaunās kartes faila vārdu
-    getNewMap("map");
+    getNewMap(mapFileName);
     // Inicializē spēlētāju punktus uz nulli, 
     // maina spēlētāju spawn atrašanās vietas
     resetPlayers(STATE);
