@@ -156,7 +156,7 @@ void game_showMainWindow(
     
     //Hashmap izmērs ir maksimālas spēlētāju skaits, kas ir vienāds ar spēlētāju
     //  skaitu, ko serveris var nosūtīt
-    hashmap_init(&hm_players, hashmap_hash, hashmap_compare_keys, MAX_PACK_SIZE / OSIZE_PLAYER);
+    hashmap_init(&hm_players, hashmap_hash, hashmap_compare_keys, DEFAULT_PACK_SIZE / OSIZE_PLAYER);
     
     //Uzzīmē logu
     surface = SDL_GetWindowSurface(window);

@@ -30,15 +30,25 @@ void net_sendChat(int socket, int playerId, const char* message) {
 
 void* net_handleUdpPackets(void* arg) {
     thread_args_t* convertedArgs = (thread_args_t*)arg;
-    
     Player* playerPtr;
     int32_t playerCount;
     char packType;
     char* currentByte;
-    char pack[MAX_PACK_SIZE];
+    char* pack;
+    
+    size_t packSize;
+    //Ja karte ir pārāk liela, piemēram, 100x100, tad tā neietilpst iekš 
+    //  DEFAULT_PACK_SIZE un buferi vajag lielāku.
+    if (convertedArgs->tileCount + 1 > DEFAULT_PACK_SIZE) {
+        packSize = convertedArgs->tileCount + 1;
+    } else {
+        packSize = DEFAULT_PACK_SIZE;
+    }
+        
+    pack = malloc(packSize);
     
     while (1) {
-        safeRecv(convertedArgs->sockets.udp, pack, MAX_PACK_SIZE, 0);
+        safeRecv(convertedArgs->sockets.udp, pack, packSize, 0);
         
         switch (pack[0]) {
         //Semikols aiz kola ir nepieciešams, jo pēc label ir jāsako statement un

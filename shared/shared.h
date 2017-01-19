@@ -57,7 +57,7 @@
 
 #define MAX_NICK_SIZE 20
 // Paketes maksimālais izmērs, kad pakete tiek devinēta statiski
-#define MAX_PACK_SIZE 1024
+#define DEFAULT_PACK_SIZE 1024
 
 
 // Spēlētāja stāvoklis
