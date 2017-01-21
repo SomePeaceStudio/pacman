@@ -36,10 +36,8 @@ void str_free(string* str) {
 }
 
 
-void str_append(string* str, char c) {
-    if (str == NULL) {
-        return;
-    }
+void str_appendChar(string* str, char c) {
+    if (str == NULL) return;
     
     //Ja ir tikko izveidots tukšs string
     if (str->buffer == NULL) {
@@ -67,11 +65,37 @@ void str_append(string* str, char c) {
     str->buffer[stringLength + 1] = '\0';
 }
 
+void str_appendString(string* str, char* other) {
+    if (str == NULL || other == NULL) return;
+    
+    size_t otherLength = strlen(other);
+    size_t stringLength;
+    size_t remainingSpace;
+    
+    //Special case
+    if (otherLength == 1) {
+        str_appendChar(str, other[0]);
+    } else if (otherLength > 0) {
+        if (str->buffer == NULL) {
+            //Calloc, lai aizpildītu ar nullēm un strlen atgrieztu 0
+            str->buffer = calloc(otherLength + 1, sizeof(char));
+        }
+        
+        stringLength = strlen(str->buffer);
+        size_t newLength = stringLength + otherLength + 1;
+        if (newLength > str->bufferLength) {
+            str->buffer = realloc(str->buffer, newLength);
+            if (str->buffer == NULL) {
+                Die(ERR_MALLOC);
+            }
+            str->bufferLength = newLength;
+        }
+        strcat(str->buffer, other);
+    }
+}
 
 void str_popBack(string* str) {
-    if (str == NULL || str->buffer == NULL) {
-        return;
-    }
+    if (str == NULL || str->buffer == NULL) return;
     
     size_t stringLength = strlen(str->buffer);
     if (stringLength > 0) { //Vismaz 1 simbols
@@ -81,9 +105,7 @@ void str_popBack(string* str) {
 
 
 void str_print(string* str) {
-    if (str == NULL || str->buffer == NULL) {
-        return;
-    }
+    if (str == NULL || str->buffer == NULL) return;
     
     printf("%s\n", str->buffer);
 }

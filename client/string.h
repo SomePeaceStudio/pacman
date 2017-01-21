@@ -13,7 +13,9 @@ void str_new(string* str, const char* text);
 void str_free(string* str);
 
 //Pievieno galā jaunu simbolu
-void str_append(string* str, char c);
+void str_appendChar(string* str, char c);
+
+void str_appendString(string* str, char* other);
 
 //Noņem no beigām vienu simbolu
 void str_popBack(string* str);
