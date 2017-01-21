@@ -6,7 +6,7 @@ CC=gcc
 CFLAGS=-pthread -lm
 
 #Bibliotēkas, ko izmanto gui klients
-LIBS_CLIENT_GUI=`pkg-config --libs gtk+-3.0` -lSDL2 -lSDL2_image -lSDL2_ttf
+LIBS_CLIENT_GUI=`pkg-config --libs gtk+-3.0` -lSDL2 -lSDL2_image -lSDL2_ttf 
 #Kompilatora opcijas priekš gui klienta
 CFLAGS_CLIENT_GUI=`pkg-config --cflags gtk+-3.0`
 

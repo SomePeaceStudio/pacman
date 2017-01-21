@@ -16,7 +16,8 @@ void Die(char *mess) { perror(mess); exit(1); }
 int safeSend(int sockfd, const void *buf, size_t len, int flags){
     int sent;
     if ((sent = send(sockfd, buf, len, flags)) != len) {
-        debug_print("%s\n", ERR_SEND);
+        //debug_print("%s\n", ERR_SEND);
+        perror(ERR_SEND);
         return sent;
     }
     return sent;
@@ -25,6 +26,18 @@ int safeSend(int sockfd, const void *buf, size_t len, int flags){
 // ========================================================================= //
 
 int safeRecv(int sockfd, void *buf, size_t len, int flags){
+    int received;
+    if ((received = recv(sockfd, buf, len, flags)) <= 0 ) {
+        debug_print("%s\n","Failed to receive bytes");
+        debug_print("Received: %2d bytes, asked-max: %d, flags used: %d\n", received,(int)len, flags);
+        return received;
+    }
+    debug_print("Received: %2d bytes, asked-max: %d\n", received,(int)len);
+    return received;
+}
+// ========================================================================= //
+
+int serverRecv(int sockfd, void *buf, size_t len, int flags){
     int received;
     if ((received = recv(sockfd, buf, len, flags)) <= 0 ) {
         debug_print("%s\n","Failed to receive bytes");

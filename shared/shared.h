@@ -121,6 +121,7 @@ typedef struct {
 void Die(char *mess);
 int safeSend(int sockfd, const void *buf, size_t len, int flags);
 int safeRecv(int sockfd, void *buf, size_t len, int flags);
+int serverRecv(int sockfd, void *buf, size_t len, int flags);
 char* allocPack(int size);
 char receivePacktype(int sock);
 char** allocateGameMap(int width, int height);

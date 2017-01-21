@@ -159,13 +159,17 @@ int main(int argc, char *argv[]) {
                 memcpy(&playerObjBuffer,current, OSIZE_PLAYER);
 
                 // Spēlētāja kordinātes
-                x = *(float*)(playerObjBuffer+4);
-                y = *(float*)(playerObjBuffer+8);
+                x = batof(playerObjBuffer+4);
+                y = batof(playerObjBuffer+8);
 
                 // Priekš pagaidu renderēšanas
                 xfloor = (int)floorf(x);
                 yfloor = (int)floorf(y);
 
+                // Mirušus nerāda
+                if(playerObjBuffer[12]==PLSTATE_DEAD){
+                    continue;
+                }
                 // Spēlētāju tipi pārklājas ar mapes objektu tipiem,
                 // piešķiru vēl neizmantotas tipu vērtības
                 debug_print("Setting %d type Player at x: %d y: %d\n",(int)*(playerObjBuffer+13), (int)x, (int)y);
