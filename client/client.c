@@ -166,6 +166,10 @@ int main(int argc, char *argv[]) {
                 xfloor = (int)floorf(x);
                 yfloor = (int)floorf(y);
 
+                // Mirušus nerāda
+                if(playerObjBuffer[12]==PLSTATE_DEAD){
+                    continue;
+                }
                 // Spēlētāju tipi pārklājas ar mapes objektu tipiem,
                 // piešķiru vēl neizmantotas tipu vērtības
                 debug_print("Setting %d type Player at x: %d y: %d\n",(int)*(playerObjBuffer+13), (int)x, (int)y);

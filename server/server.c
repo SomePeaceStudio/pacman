@@ -135,6 +135,10 @@ void* actionThread(void *parm){
 
             player = getPlayer(STATE, id);
             if(player!=0){
+                if(player->state == PLSTATE_DEAD){
+                    debug_print("Dead meat, id: %d don't move!\n" , id);
+                    continue;
+                }
                 player->mdir = mdir;
                 continue;
             }
@@ -418,6 +422,10 @@ void updateState(){
     // y2 - apakšējās malas viduspunkts
     float ix1,ix2,iy1,iy2,jx1,jx2,jy1,jy2;
     for(objectNode_t *i = STATE; i != 0; i = i->next){
+        // Mirušiem spēlētājiem neveic aprēķinus
+        if(i->object.state == PLSTATE_DEAD){
+            continue;
+        }
         // Iegūstas spēlētāja tipa izmērus
         if(i->object.type == PLTYPE_PACMAN){
             iWidth = pacmanWidth;
@@ -434,12 +442,14 @@ void updateState(){
         for(objectNode_t *j = STATE; j != 0; j = j->next){
             // Ja spēlētāju tipi ir vienādi - nekas nenotiek
             if(i->object.type == j->object.type || \
-                i->object.id == j->object.id)
+                i->object.id == j->object.id    || \
+                j->object.state == PLSTATE_DEAD)
             {
-                break;
+                continue;
             }
             // Iegūstas spēlētāja tipa izmērus
             if(j->object.type == PLTYPE_PACMAN){
+
                 jWidth = pacmanWidth;
                 jHeight = pacmanHeight;
             }else{
@@ -451,9 +461,9 @@ void updateState(){
             jy1 = j->object.y - jHeight/2;
             jy2 = j->object.y + jHeight/2;
             // Pārbauda vai objekti pārklājas
-            // printf("\n\n%s\n", "Checking Collission");
-            // printf("%f<=%f && %f>=%f && %f<=%f && %f>=%f\n\n",\
-            //     ix1,jx2,ix2,jx1,iy1,jy2,iy2,jy1);
+            printf("\n\n%s\n", "Checking Collission");
+            printf("%f<=%f && %f>=%f && %f<=%f && %f>=%f\n\n",\
+                ix1,jx2,ix2,jx1,iy1,jy2,iy2,jy1);
             if(ix1<=jx2 && ix2>=jx1 && iy1<=jy2 && iy2>=jy1){
                 // Pacman tiek apēsts
                 if(i->object.type == PLTYPE_PACMAN){
