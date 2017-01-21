@@ -159,8 +159,8 @@ int main(int argc, char *argv[]) {
                 memcpy(&playerObjBuffer,current, OSIZE_PLAYER);
 
                 // Spēlētāja kordinātes
-                x = *(float*)(playerObjBuffer+4);
-                y = *(float*)(playerObjBuffer+8);
+                x = batof(playerObjBuffer+4);
+                y = batof(playerObjBuffer+8);
 
                 // Priekš pagaidu renderēšanas
                 xfloor = (int)floorf(x);
