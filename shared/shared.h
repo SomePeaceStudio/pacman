@@ -56,6 +56,8 @@
 
 
 #define MAX_NICK_SIZE 20
+#define MAX_MESSAGE_SIZE 255 // Priekš message ielasīšanas bufera
+
 // Paketes maksimālais izmērs, kad pakete tiek devinēta statiski
 #define DEFAULT_PACK_SIZE 1024
 

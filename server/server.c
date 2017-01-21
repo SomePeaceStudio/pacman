@@ -60,7 +60,9 @@ void sendPlayerDisconnected(int32_t playerId);
 void sendBroadcast(char* pack, size_t length, bool useTcp);
 int sendEnd(int sock);
 int handleJoin(int sock, int32_t playerId);
-int readQuitPacket(int sock, int32_t playerId);
+int readTCPPacket(int sock, int32_t playerId);
+int readQuit(int sock, int32_t playerId);
+void readMessage(int sock, int32_t playerId);
 
 
 void getNewMap(char* filename);
@@ -189,8 +191,8 @@ void* handleClient(void *sockets) {
     // Main GAME loop
     while(1){
 
-        // Pārbauda vai ir nolasīta QUIT pakete
-        if(readQuitPacket(sockTCP, playerId) == 0){
+        // Nolasa TCP paketi, ja nolasīta ir QUIT, tad atgriež 2
+        if(readTCPPacket(sockTCP, playerId) == 2){
             break;
         };
 
@@ -662,6 +664,7 @@ void sendBroadcast(char* pack, size_t length, bool useTcp) {
     for (objectNode_t* current = STATE; current != NULL; current = current->next) {
         int sock = useTcp ? current->object.sockets.tcp : current->object.sockets.udp;
         if (sock != 0) {
+            printf("%s\n", "SENDING!!!!!!! Broadcast!!");
             safeSend(sock, pack, length, 0);
         }
     }
@@ -678,6 +681,75 @@ int sendEnd(int sock){
         return 1;
     };
     return 0;
+}
+
+// ========================================================================= //
+
+int readQuit(int sock, int32_t playerId){
+    char pack[PSIZE_QUIT-1];
+
+    // Pārbauda vai spēlētājs nemēģina atvienot kādu citu spēlētāju
+    if(playerId == batoi(&pack[0])){
+        debug_print("Client with Id: %d disconnecting..\n", batoi(&pack[1]));
+        return 0;
+    }
+    debug_print("Client sent wrong Id: %d in QUIT pack\n", batoi(&pack[1]));
+    return 1;
+}
+
+// ========================================================================= //
+
+void readMessage(int sock, int32_t playerId){
+    char header[8];
+    int32_t messageSize;
+    int32_t messageId; // Spēlētāja id ziņas paketē
+    char* message;
+
+    serverRecv(sock, &header, 8, 0);
+
+    messageId = batoi(header);
+    messageSize = batoi(&header[4]);
+
+    printf("Player id: %d Msg size: %d\n", messageId, messageSize);
+    message = allocPack(messageSize+1);
+    serverRecv(sock, message, messageSize, 0);
+    message[messageSize] = '\0';
+
+    printf("MESSAGE2: %s, from client: %d\n",message, messageId);
+
+    // Pārsūta ziņu čatā
+    int packSize = 1+4+4+messageSize;
+    char* pack = allocPack(packSize);
+    pack[0] = PTYPE_MESSAGE;                //0. baits
+    itoba(playerId, &pack[1]);              //1. - 4. baits
+    itoba(messageSize, &pack[5]);            //5. - 8. baits
+    strncpy(&pack[9], message, messageSize); //9. - x. baits
+    sendBroadcast(pack, packSize, true);
+    free (message);
+    free (pack);
+}
+
+// ========================================================================= //
+
+// Atgriež  0 - viss kārtībā
+//          1 - kļūda
+//          2 - spēlētājs atvienojās
+int readTCPPacket(int sock, int32_t playerId){
+    debug_print("Receiving TCP packets.. playerID: %d\n", playerId);
+    char packtype;
+    if(recv(sock, &packtype, 1, MSG_DONTWAIT) < 0){
+        return 1;
+    }
+    if(packtype == PTYPE_MESSAGE){
+        readMessage(sock, playerId);
+        return 0;
+    }
+    if(packtype == PTYPE_QUIT){
+        readQuit(sock, playerId);
+        return 2;
+    }
+    debug_print("Received <UNKNOWN> TCP packtype: %d playerID: %d\n", (int)packtype, playerId);
+    return 1;
 }
 
 // ========================================================================= //
@@ -735,6 +807,9 @@ void initNewPlayer(int id, int type, char *name){
     newPlayer.state = PLSTATE_LIVE;
     newPlayer.mdir = DIR_NONE;
     newPlayer.disconnected = 0;
+    newPlayer.sockets.udp = 0;
+    newPlayer.sockets.tcp = 0;
+
     // Pievieno sarakstam
     addObjectNodeEnd(&STATE, createObjectNode(&newPlayer));
 };
@@ -948,30 +1023,3 @@ void setPlayerDisconnected(int32_t playerId){
         }
     }
 }
-
-// ========================================================================= //
-
-int readQuitPacket(int sock, int32_t playerId){
-    char pack[PSIZE_QUIT];
-    if(recv(sock, &pack, PSIZE_QUIT, MSG_DONTWAIT) < 0){
-        return 1;
-    }
-    if((int)pack[0] == PTYPE_QUIT){
-        // Pārbauda vai spēlētājs nemēģina atvienot kādu citu spēlētāju
-        if(playerId == batoi(&pack[1])){
-            debug_print("Client with Id: %d disconnecting..\n", batoi(&pack[1]));
-            return 0;
-        }
-        debug_print("Client sent wrong Id: %d in QUIT pack\n", batoi(&pack[1]));
-        return 1;
-    }else{
-        // Ja pakete nav QUIT pakete, tad tā visticamāk nav valida
-        // un tā tiek ignorēta
-        debug_print("Received packtype: %d expected: %d\n", (int)pack[0], PTYPE_QUIT);
-        return 1;
-    }
-
-}
-
-// ========================================================================= //
-
