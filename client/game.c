@@ -8,6 +8,7 @@
 #include "tile.h"
 #include "player.h"
 #include "network.h"
+#include "string.h"
 #include "../shared/hashmap.h"
 
 //72, jo serveris vairāk nesūtīs (1024 baitu buferī vairāk nesaiet)
@@ -19,14 +20,19 @@
 HASHMAP_FUNCS_DECLARE(int, int32_t, Player);
 HASHMAP_FUNCS_CREATE(int, int32_t, Player);
 
+int min(int a, int b) {
+    return (a > b) ? b : a;
+}
+    
 void waitForStart();
 //Atgriež tekstu ar spēlētāju punktiem
 char** getScoreText(struct hashmap* hm_players, Player* me);
 //Uzzīmē spēlētāju nikus un punktu skaitus uz ekrāna
 void renderPlayerScores(SDL_Renderer* renderer, SDL_Color color, TTF_Font* font, char** scores, size_t lineCount);
+//Uzzīmē spēles galveno izvēlni (kad nospiež ESC)
+void renderPauseScreen(SDL_Renderer* renderer, TTF_Font* font, int windth, int height);
 size_t getDigitCount(int32_t i); //Atgriež ciparu skaitu skaitlī
 void game_handleInput(int sock, int playerId, SDL_KeyboardEvent* event);
-void game_showMainWindow(Player* me, sockets_t* sock, struct sockaddr_in* serverAddress);
 
 //TODO: pievienot time-out gadījumam, ja serveris neatbild
 //TODO: pārcelt uz citu pavedienu, lai varētu aizvērt logu, ja serveris neatbild
@@ -75,7 +81,7 @@ void game_handleInput(int sock, int playerId, SDL_KeyboardEvent* event) {
     net_sendMove(sock, playerId, direction);
 }
 
-void game_showMainWindow(
+GameStatus game_showMainWindow(
     Player* me, sockets_t* sock, struct sockaddr_in* serverAddress) {
         
     SDL_Window* window = NULL;
@@ -89,6 +95,7 @@ void game_showMainWindow(
     Tile* tileSet; //Tile masīvs
     WTexture tileTexture;
     WTexture playerTexture;
+    GameStatus returnStatus = GS_QUIT;
     
     memset(&tileTexture, 0, sizeof(WTexture));
     memset(&playerTexture, 0, sizeof(WTexture));
@@ -111,7 +118,7 @@ void game_showMainWindow(
         printf( "Warning: Linear texture filtering not enabled!\n");
     }
     
-    //Izveido 100x100 px logu (izmēriem nav nozīmes, jo tie tapat mainīsies,
+    //Izveido 500x500 px logu (izmēriem nav nozīmes, jo tie tapat mainīsies,
     //  kad no servera tiks saņemta karte)
     window = SDL_CreateWindow(
         "Pacman",
@@ -139,7 +146,8 @@ void game_showMainWindow(
         exit(1);
     }
     
-    SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
+    //Lai varētu zīmēt arī caurspīdīgumu (Alpha channel)
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     
     //Init SDL_image
     int imgFlags = IMG_INIT_PNG;
@@ -177,7 +185,7 @@ void game_showMainWindow(
     SDL_DisplayMode dm;
     if (SDL_GetDesktopDisplayMode(0, &dm) != 0) {
         printf("SDL_GetDesktopDisplayMode failed: %s", SDL_GetError());
-        return;
+        exit (1);
     }
     
     //Ja līmenis ir gan par platu, gan par augstu, tad maksimizē logu,
@@ -196,6 +204,8 @@ void game_showMainWindow(
     pthread_t tcpThread;
     pthread_t udpThread;
     
+    bool quit = false;
+    
     //Info, kas japadod TCP un UDP pavedieniem
     thread_args_t threadArgs = {
         .sockets = *sock,
@@ -206,17 +216,32 @@ void game_showMainWindow(
         .windowHeight = &windowHeight,
         .camera = &camera,
         .me = me,
+        .quit = &quit,
         .tiles = tileSet,
         .hm_players = &hm_players
     };
     
+    //Uzstāda 1 sekundes timeout TCP un UDP socketiem, lai pavedieni negaidītu
+    //  paketi mūžīgi. (Svarīgi biegās, kad jāatbrīvo resursi)
+    struct timeval tv;
+    tv.tv_sec = 1;   //1 sekunde
+    tv.tv_usec = 0;  //Mikrosekundes jāinicializē uz 0
+    setsockopt( 
+        sock->tcp,
+        SOL_SOCKET, SO_RCVTIMEO,
+        (char *)&tv,
+        sizeof(struct timeval)
+    );
+    setsockopt( 
+        sock->udp,
+        SOL_SOCKET, SO_RCVTIMEO,
+        (char *)&tv,
+        sizeof(struct timeval)
+    );
+    
     //Izveidojam pavedienus
     pthread_create(&udpThread, NULL, net_handleUdpPackets, &threadArgs);
     pthread_create(&tcpThread, NULL, net_handleTcpPackets, &threadArgs);
-    
-    bool quit = false;
-    bool showScores = false;
-    SDL_Event e;
     
     //Fonts teksta renderēšanai
     TTF_Font* font = TTF_OpenFont("font.ttf", FONT_SIZE);
@@ -225,8 +250,17 @@ void game_showMainWindow(
         exit(1);
     }
     
+    //Atslēdz teksta ievadi sākumā
+    SDL_StopTextInput();
+    
     //Teksta krāsa
     SDL_Color color = {.r = 180, .g = 180, .b = 180, .a = 100};
+    bool showScores = false;
+    bool pause = false;
+    SDL_Event e;
+    
+    string chatMessage;
+    bool textInputActive = false;
     
     //Main loop
     while (!quit) {
@@ -240,14 +274,78 @@ void game_showMainWindow(
             
                 
             case SDL_KEYDOWN:
-                if (e.key.keysym.sym == SDLK_f) {
-                    SDL_MaximizeWindow(window);
-                }
+                switch (e.key.keysym.sym) {
+                case SDLK_TAB:
+                    if (e.key.repeat == 0) {
+                        showScores = true;
+                    }
+                    break;
+                    
+                case SDLK_SLASH:
+                    if (e.key.repeat == 0) {
+                        if (textInputActive) {
+                            SDL_StopTextInput();
+                            str_free(&chatMessage);
+                        } else {
+                            SDL_StartTextInput();
+                            str_new(&chatMessage, NULL);
+                        }
+                        textInputActive = !textInputActive;
+                    }
+                    break;
+                    
+                case SDLK_BACKSPACE:
+                    str_popBack(&chatMessage);
+                    printf("Chat message: %s\n", chatMessage.buffer);
+                    break;
+                    
+                case SDLK_ESCAPE:
+                    if (e.key.repeat == 0) {
+                        printf("pause\n");
+                        if (textInputActive) {
+                            textInputActive = false;
+                        } else {
+                            pause = !pause;
+                        }
+                    }
+                    break;
+                    
+                //Pause: Continue
+                case SDLK_1:
+                    if (e.key.repeat == 0) {
+                        if (pause) {
+                            pause = false;
+                        }
+                    }
+                    break;
                 
-                if (e.key.keysym.sym == SDLK_TAB) {
-                    showScores = true;
-                } else {
-                    game_handleInput(sock->udp, me->id, &e.key);
+                //Pause: Log out
+                case SDLK_2:
+                    if (e.key.repeat == 0) {
+                        if (pause) {
+                            printf("Sending QUIT\n");
+                            net_sendQuit(sock->tcp, me->id);
+                            printf("Sent QUIT\n");
+                            returnStatus = GS_LOG_OUT;
+                            quit = true;
+                        }
+                    }
+                    break;
+                    
+                //Pause: Quit
+                case SDLK_3:
+                    if (e.key.repeat == 0) {
+                        if (pause) {
+                            quit = true;
+                        }
+                    }
+                    break;
+                    
+                default:
+                    if (e.key.repeat == 0) {
+                        game_handleInput(sock->udp, me->id, &e.key);
+                    }
+                    break;    
                 }
                 break;
                 
@@ -265,8 +363,15 @@ void game_showMainWindow(
                     camera.h = windowHeight = e.window.data2;
                 }
                 break;
+                
+            
+            case SDL_TEXTINPUT:
+                str_appendString(&chatMessage, e.text.text);
+                printf("Chat message: %s\n", chatMessage.buffer);
+                break;
             }
         }
+        SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
         SDL_RenderClear(renderer);
         
         //Renderē tiles (pagaidām tikai atmiņā, nevis uz ekrāna)
@@ -288,9 +393,48 @@ void game_showMainWindow(
             renderPlayerScores(renderer, color, font, scores, hashmap_size(&hm_players) + 1);
         }
         
+        if (textInputActive) {
+            //Uzzīmē pelēku fonu, kur ievadīt tekstu
+            SDL_Rect chatBox = {.w = windowWidth, .h = 30, .x = 0, .y = windowHeight - 30};
+            SDL_SetRenderDrawColor(renderer, 70, 70, 70, 128);
+            SDL_RenderFillRect(renderer, &chatBox);
+            
+            
+            SDL_Color textColor = {.r = 230, .g = 230, .b = 230, .a = 230};
+            SDL_Surface* textSurface = TTF_RenderText_Solid(font, chatMessage.buffer, textColor);
+            
+            if (textSurface != NULL) {
+                SDL_Rect targetRect = {
+                    .w = min(windowWidth, textSurface->w),
+                    .h = textSurface->h,
+                    .x = 0,
+                    .y = windowHeight - textSurface->h
+                };
+                
+                SDL_Rect clipRect = {
+                    .w = windowWidth,
+                    .h = 30,
+                    .x = textSurface->w - windowWidth,
+                    .y = 0
+                };
+                
+                SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, textSurface);
+                SDL_RenderCopy(renderer, texture, &clipRect, &targetRect);
+                SDL_FreeSurface(textSurface);
+            }
+        }
+        
+        if (pause) {
+            renderPauseScreen(renderer, font, windowWidth, windowHeight);
+        }
+        
         //Renderē visu uz ekrāna
         SDL_RenderPresent (renderer);
     }
+    
+    //Pagaidām, kamēr abi tīkla pavedien biedz darbu
+    pthread_join(tcpThread, NULL);
+    pthread_join(udpThread, NULL);
     
     //Cleanup
     SDL_DestroyWindow(window);
@@ -301,10 +445,12 @@ void game_showMainWindow(
     wtexture_free(&playerTexture);
     SDL_Quit();
     TTF_Quit();
+    return returnStatus;
 }
 
 char** getScoreText(struct hashmap* hm_players, Player* me) {
-    size_t playerCount = hashmap_size(hm_players) + 1; //+1 priekš "me"
+    //+1 priekš "me", jo tas nav hashmap'ā
+    size_t playerCount = hashmap_size(hm_players) + 1;
     char** textLines;
     
     textLines = malloc(playerCount * sizeof(char*));
@@ -343,9 +489,8 @@ char** getScoreText(struct hashmap* hm_players, Player* me) {
 
 void renderPlayerScores(SDL_Renderer* renderer, SDL_Color color, TTF_Font* font, char** scores, size_t lineCount) {
     //Vieta uz ekrāna, kur rezultāts tiks parādīts
-    SDL_Rect targetRect = {.x = 8, .y = 0};
+    SDL_Rect targetRect = {.x = 8, .y = 8};
     
-    //hashmap izmēram + 1, jo "me" nav iekļauts hashmap'ā
     for (int i = 0; i < lineCount; i++) {
         SDL_Surface* textSurface = TTF_RenderText_Solid(font, scores[i], color);
         targetRect.w = textSurface->w;
@@ -354,11 +499,34 @@ void renderPlayerScores(SDL_Renderer* renderer, SDL_Color color, TTF_Font* font,
         SDL_RenderCopy(renderer, texture, NULL, &targetRect);
         targetRect.y += textSurface->h;
         SDL_FreeSurface(textSurface);
-        
     }
 }
 
-//Darbojas ātri, jo nav lieki aprēķini
+void renderPauseScreen(SDL_Renderer* renderer, TTF_Font* font, int windth, int height) {
+    static WTexture wtResume;
+    static WTexture wtLogOut;
+    static WTexture wtQuit;
+    
+    SDL_Rect chatBox = {.w = windth, .h = height, .x = 0, .y = 0};
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 200);
+    SDL_RenderFillRect(renderer, &chatBox);
+    
+    
+    SDL_Color textColor = {.r = 255, .g = 255, .b = 255};
+    SDL_Color bgColor = {.r = 0, .g = 0, .b = 0};
+    
+    if (wtResume.texture == NULL) {
+        printf("Initializing\n");
+        wtexture_fromText(&wtResume, renderer, font, textColor, bgColor, "1: Resume");
+        wtexture_fromText(&wtLogOut, renderer, font, textColor, bgColor, "2: Log out");
+        wtexture_fromText(&wtQuit, renderer, font, textColor, bgColor, "3: Quit");
+    }
+    
+    wtexture_render(&wtResume, renderer, 10, 10, NULL);
+    wtexture_render(&wtLogOut, renderer, 10, 10 + wtResume.height, NULL);
+    wtexture_render(&wtQuit, renderer, 10, 10 + wtResume.height * 2, NULL);
+}
+
 size_t getDigitCount(int32_t i) {
     i = abs(i);
     if (i < 10) return 1;

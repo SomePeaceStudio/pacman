@@ -6,7 +6,7 @@
 static SDL_Rect textureClips[TOTAL_PLAYER_SPRITES];
 
 void player_render(Player* player, SDL_Rect* camera, WTexture* wt, SDL_Renderer* renderer) {
-    wtexture_render(
+    wtexture_render_2(
         wt,
         renderer,
         player->x - camera->x,

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 
 #include "network.h"
 #include "../shared/hashmap.h"
@@ -28,6 +29,13 @@ void net_sendChat(int socket, int playerId, const char* message) {
     safeSend(socket, pack, packetLength, 0);
 }
 
+void net_sendQuit(int socket, int32_t playerId) {
+    char* pack = allocPack(PSIZE_QUIT);        
+    pack[0] = PTYPE_QUIT;                      //0. baits
+    itoba(playerId, &pack[1]);                 //1. - 4. baits
+    safeSend(socket, pack, PSIZE_QUIT, 0);
+}
+
 void* net_handleUdpPackets(void* arg) {
     thread_args_t* convertedArgs = (thread_args_t*)arg;
     Player* playerPtr;
@@ -47,8 +55,13 @@ void* net_handleUdpPackets(void* arg) {
         
     pack = malloc(packSize);
     
-    while (1) {
-        safeRecv(convertedArgs->sockets.udp, pack, packSize, 0);
+    while (!*convertedArgs->quit) {
+        int received = safeRecv(convertedArgs->sockets.udp, pack, packSize, 0);
+        
+        //Neizdevās nolasīt datus, sasniegts timeout (vai cits iemesls)
+        if (received <= 0) {
+            continue;
+        }
         
         switch (pack[0]) {
         //Semikols aiz kola ir nepieciešams, jo pēc label ir jāsako statement un
@@ -115,7 +128,6 @@ void* net_handleUdpPackets(void* arg) {
                 if (newPlayer) {
                     hashmap_int_put(convertedArgs->hm_players, &id, playerPtr);
                 } else if (playerPtr == convertedArgs->me) {
-                    printf("Setting the camera\n");
                     player_setCamera(
                         convertedArgs->me,
                         convertedArgs->camera,
@@ -157,6 +169,9 @@ void* net_handleUdpPackets(void* arg) {
             break;
         }
     }
+    
+    debug_print("%s\n", "UDP thread cleanup");
+    free(pack);
 }
 
 void* net_handleTcpPackets(void* arg) {
@@ -166,7 +181,14 @@ void* net_handleTcpPackets(void* arg) {
     char* pack;
     size_t remainingLength;
     
-    while (1) {
+    while (!*convertedArgs->quit) {
+        ssize_t received = recv(convertedArgs->sockets.tcp, &packType, 1, 0);
+        
+        //Neizdevās nolasīt paketes tipu, sasniegts timeout (vai cits iemesls)
+        if (received != 1) {
+            continue;
+        }
+        
         packType = receivePacktype(convertedArgs->sockets.tcp);
         switch (packType) {
         
@@ -215,4 +237,6 @@ void* net_handleTcpPackets(void* arg) {
             break;
         }
     }
+    
+    debug_print("%s\n", "TCP thread cleanup");
 }

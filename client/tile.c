@@ -20,7 +20,7 @@ void tile_new(Tile* tile, int x, int y, char type) {
 
 void tile_render(Tile* tile, SDL_Renderer* renderer, SDL_Rect* camera, WTexture* tileTexture) {
     if (checkCollision(*camera, tile->box)) {
-        wtexture_render(
+        wtexture_render_2(
             tileTexture,
             renderer,
             tile->box.x - camera->x,
