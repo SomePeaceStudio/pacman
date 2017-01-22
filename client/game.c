@@ -9,6 +9,7 @@
 #include "player.h"
 #include "network.h"
 #include "string.h"
+#include "pausescreen.h"
 #include "../shared/hashmap.h"
 
 //72, jo serveris vairāk nesūtīs (1024 baitu buferī vairāk nesaiet)
@@ -87,18 +88,20 @@ GameStatus game_showMainWindow(
     SDL_Window* window = NULL;
     SDL_Surface* surface = NULL;
     SDL_Renderer* renderer = NULL;
-    //Domāts apciprpšanai
-    SDL_Rect camera = { 0, 0, 500, 500 };
+    SDL_Rect camera = { 0, 0, 500, 500 }; //Domāts apciprpšanai
     int mapWidth, mapHeight, tileCount;
     int levelWidth, levelHeight;
     int windowWidth, windowHeight;
-    Tile* tileSet; //Tile masīvs
+    Tile* tileSet;
     WTexture tileTexture;
     WTexture playerTexture;
     GameStatus returnStatus = GS_QUIT;
+    PauseScreen pauseScreen;
     
+    //Nepieciešams, lai varētu noteikt, vai struktūras ir inicializētas
     memset(&tileTexture, 0, sizeof(WTexture));
     memset(&playerTexture, 0, sizeof(WTexture));
+    memset(&pauseScreen, 0, sizeof(PauseScreen));
     
     //Visi spēlētāju dati tiek glabāti heštabulā, kur atslēga ir spēlētāja id
     struct hashmap hm_players;
@@ -165,6 +168,15 @@ GameStatus game_showMainWindow(
     //Hashmap izmērs ir maksimālas spēlētāju skaits, kas ir vienāds ar spēlētāju
     //  skaitu, ko serveris var nosūtīt
     hashmap_init(&hm_players, hashmap_hash, hashmap_compare_keys, DEFAULT_PACK_SIZE / OSIZE_PLAYER);
+    
+    //Fonts teksta renderēšanai
+    TTF_Font* font = TTF_OpenFont("font.ttf", FONT_SIZE);
+    if (font == NULL) {
+        printf("font == NULL\n");
+        exit(1);
+    }
+    
+    pause_new(&pauseScreen, renderer, font);
     
     //Uzzīmē logu
     surface = SDL_GetWindowSurface(window);
@@ -247,13 +259,6 @@ GameStatus game_showMainWindow(
     //Izveidojam pavedienus
     pthread_create(&udpThread, NULL, net_handleUdpPackets, &threadArgs);
     pthread_create(&tcpThread, NULL, net_handleTcpPackets, &threadArgs);
-    
-    //Fonts teksta renderēšanai
-    TTF_Font* font = TTF_OpenFont("font.ttf", FONT_SIZE);
-    if (font == NULL) {
-        printf("font == NULL\n");
-        exit(1);
-    }
     
     //Atslēdz teksta ievadi sākumā
     SDL_StopTextInput();
@@ -345,7 +350,7 @@ GameStatus game_showMainWindow(
                     break;
                     
                 default:
-                    if (e.key.repeat == 0) {
+                    if (e.key.repeat == 0 && !pause) {
                         game_handleInput(sock->udp, me->id, &e.key);
                     }
                     break;    
@@ -428,7 +433,7 @@ GameStatus game_showMainWindow(
         }
         
         if (pause) {
-            renderPauseScreen(renderer, font, windowWidth, windowHeight);
+            pause_render(&pauseScreen, renderer, windowWidth, windowHeight);
         }
         
         //Renderē visu uz ekrāna
@@ -503,31 +508,6 @@ void renderPlayerScores(SDL_Renderer* renderer, SDL_Color color, TTF_Font* font,
         targetRect.y += textSurface->h;
         SDL_FreeSurface(textSurface);
     }
-}
-
-void renderPauseScreen(SDL_Renderer* renderer, TTF_Font* font, int windth, int height) {
-    static WTexture wtResume;
-    static WTexture wtLogOut;
-    static WTexture wtQuit;
-    
-    SDL_Rect chatBox = {.w = windth, .h = height, .x = 0, .y = 0};
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 200);
-    SDL_RenderFillRect(renderer, &chatBox);
-    
-    
-    SDL_Color textColor = {.r = 255, .g = 255, .b = 255};
-    SDL_Color bgColor = {.r = 0, .g = 0, .b = 0};
-    
-    if (wtResume.texture == NULL) {
-        debug_print("%s\n", "Initializing");
-        wtexture_fromText(&wtResume, renderer, font, textColor, bgColor, "1: Resume");
-        wtexture_fromText(&wtLogOut, renderer, font, textColor, bgColor, "2: Log out");
-        wtexture_fromText(&wtQuit, renderer, font, textColor, bgColor, "3: Quit");
-    }
-    
-    wtexture_render(&wtResume, renderer, 10, 10, NULL);
-    wtexture_render(&wtLogOut, renderer, 10, 10 + wtResume.height, NULL);
-    wtexture_render(&wtQuit, renderer, 10, 10 + wtResume.height * 2, NULL);
 }
 
 size_t getDigitCount(int32_t i) {

@@ -32,7 +32,7 @@ int safeRecv(int sockfd, void *buf, size_t len, int flags){
         debug_print("Received: %2d bytes, asked-max: %d, flags used: %d\n", received,(int)len, flags);
         return received;
     }
-    debug_print("Received: %2d bytes, asked-max: %d\n", received,(int)len);
+    // debug_print("Received: %2d bytes, asked-max: %d\n", received,(int)len);
     return received;
 }
 // ========================================================================= //
