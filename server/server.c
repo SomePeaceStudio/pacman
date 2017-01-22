@@ -536,8 +536,12 @@ void sendStart(int sock, int32_t playerId){
     pack[0] = 2;
     pack[1] = MAPHEIGHT;
     pack[2] = MAPWIDTH;
-    pack[3] = getPlayer(STATE, playerId)->x;
-    pack[4] = getPlayer(STATE, playerId)->y;
+    object_t *player = getPlayer(STATE, playerId);
+    if(player == 0){
+        return;
+    }
+    pack[3] = player->x;
+    pack[4] = player->y;
 
     // Ja neizdodas nosūtīt kartes izmērus tiek pieņemts,
     // ka klients ir atvienojies
@@ -714,6 +718,8 @@ void readMessage(int sock, int32_t playerId){
     message = allocPack(messageSize+1);
     serverRecv(sock, message, messageSize, 0);
     message[messageSize] = '\0';
+
+    replaceChar(message, '\n',' ');
 
     printf("MESSAGE2: %s, from client: %d\n",message, messageId);
 

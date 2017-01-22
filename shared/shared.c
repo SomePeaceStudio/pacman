@@ -220,3 +220,14 @@ int clipBoth(int number, int min, int max) {
     number = clipMax(number, max);
     return number;
 }
+
+// ========================================================================= //
+
+// Nomaina visus x vērtības uz y vērtībām
+void replaceChar(char* string, char x, char y){
+    for(char* i = &string[0]; *i != '\0'; i++){
+        if( *i == x ){
+            *i = y;
+        }
+    }
+}

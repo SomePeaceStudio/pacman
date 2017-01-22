@@ -22,7 +22,7 @@ int32_t playerId;
 char playerName[MAX_NICK_SIZE+1] = "pacMonster007----END";
 pthread_t  tid;   // Second thread
 int sockTCP, sockUDP; // Lai visi pavedieni var viegli piekļūt klāt
-
+FILE* chatFile;
 
 // ========================================================================= //
 
@@ -33,6 +33,7 @@ void* actionTherad(void *parm);   /* Thread function to client actions */
 int sendQuit(int sock);
 void readMessage(int sock);
 int readTCPPacket(int sock);
+void readStart(int sock);
 
 // ========================================================================= //
 
@@ -44,16 +45,13 @@ void* actionTherad(void *parm){
     int32_t messageSize;
 
     while(1){
-        debug_print("%s\n", "Test1");
         char command[MAX_MESSAGE_SIZE];
         // bzero(command, MAX_MESSAGE_SIZE);
         fgets(command, MAX_MESSAGE_SIZE, stdin);
         // command[MAX_MESSAGE_SIZE-1]='\0';
-        debug_print("%s\n", "Test2");
 
         if(strlen(command)>3 && command[0]=='/'){
             if(command[1]=='m'){
-                debug_print("%s\n", "Test3");
                 messageSize = strlen(&command[3]); 
                 int packSize = 1+4+4+messageSize;
 
@@ -69,7 +67,6 @@ void* actionTherad(void *parm){
             }
             continue;
         }
-        debug_print("%s\n", "Test6");
 
         // Pārtulko par virzienu
         if(command[0] == 'a'){
@@ -84,10 +81,8 @@ void* actionTherad(void *parm){
             continue;
         }
         /* Send move */
-        debug_print("%s\n", "Test7");
 
         pack = allocPack(PSIZE_MOVE);
-        debug_print("%s\n", "Test8");
 
         // debug_print("Setting Id: %d\n", playerId);
         pack[0] = PTYPE_MOVE;
@@ -95,7 +90,6 @@ void* actionTherad(void *parm){
         // debug_print("Id was set: %d\n", batoi(&pack[1]));
         pack[5] = move;
         safeSend(sockUDP, pack, PSIZE_MOVE, 0);
-        debug_print("%s\n", "Test9");
 
         printf("You'r move was: %c\n", command[0]);
         free(pack);
@@ -109,7 +103,7 @@ int main(int argc, char *argv[]) {
     struct sockaddr_in gameserver, gameclient;
     socklen_t clientAdrrLength;
     char packtype;
-    char pack[1024];
+    char pack[1024]; 
 
     //char* pack;
     int packSize;
@@ -153,6 +147,11 @@ int main(int argc, char *argv[]) {
       Die(ERR_CONNECT);
     }
 
+    // Atver čata failu
+    if((chatFile = fopen("chat", "w")) == NULL){
+        Die("Could not open chat file");    
+    }   
+
     playerId = joinGame(sockTCP);
     waitForStart(sockTCP);
 
@@ -161,7 +160,7 @@ int main(int argc, char *argv[]) {
     
     while(1){
         readTCPPacket(sockTCP);
-        
+
         memset(&pack, 0, 1024);
         safeRecv(sockUDP,&pack,sizeof(pack),0);
         
@@ -236,6 +235,10 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "\n");
     close(sockTCP);
    	close(sockUDP);
+    // Aizver čata failu
+    if(fclose(chatFile) != 0){
+        printf("%s\n", "Could not close chatFile");
+    }
    	exit(0);
 }
 
@@ -304,28 +307,14 @@ int joinGame(int sock){
 
 void waitForStart(int sock){
     char packtype;
-    char *pack;
-
     packtype = receivePacktype(sock);
     if((int)packtype == PTYPE_START){
-        pack = allocPack(PSIZE_START-1);
-        safeRecv(sock, pack, PSIZE_START-1, 0);
-        // Set map sizes (globals)
-        mapHeight = (int)pack[0];
-        mapWidth = (int)pack[1];
-        debug_print("Received Map sizes, width: %2d  height: %2d plx: %d ply: %d\n",\
-                        mapWidth, mapHeight, (int)pack[2], (int)pack[3] );
-        MAP = allocateGameMap(mapWidth, mapHeight);
+        readStart(sock);
         // TODO: Get player chords
         // For now I have no idea where to
         // put them ...
     }else{
         // TODO: Do something
-    }
-
-    // Free memory
-    if(pack != 0){
-        free(pack);
     }
 }
 
@@ -355,6 +344,15 @@ int readTCPPacket(int sock){
         readMessage(sock);
         return 0;
     }
+    if(packtype == PTYPE_END){
+        debug_print("%s\n", "Receiving END. ");
+        return 0;
+    }
+    if(packtype == PTYPE_START){
+        debug_print("%s\n", "Receiving START. ");
+        readStart(sock);
+        return 0;
+    }
     debug_print("Received <UNKNOWN> TCP packtype: %d playerID: %d\n", (int)packtype, playerId);
     return 1;
 }
@@ -374,5 +372,25 @@ void readMessage(int sock){
     message[messageSize] = '\0';
 
     printf("MESSAGE: %s, from client: %d\n",message, messageId);
+    
+    
+    debug_print("%s\n", "Reading Map File...");
+    if(fprintf(chatFile, "[From: id-%d] %s\n",messageId, message) == 0){
+        Die("Could not read map's widht and height");
+    }
+    fflush(chatFile);
     free (message);
+}
+void readStart(int sock){
+    if(MAP != 0){
+        free(MAP);
+    }
+    char pack[PSIZE_START-1];
+    safeRecv(sock, pack, PSIZE_START-1, 0);
+    // Set map sizes (globals)
+    mapHeight = (int)pack[0];
+    mapWidth = (int)pack[1];
+    debug_print("Received Map sizes, width: %2d  height: %2d plx: %d ply: %d\n",\
+                    mapWidth, mapHeight, (int)pack[2], (int)pack[3] );
+    MAP = allocateGameMap(mapWidth, mapHeight);
 }

@@ -148,4 +148,7 @@ int clipMin(int number, int min);
 int clipMax(int number, int max);
 int clipBoth(int number, int min, int max);
 
+// Nomaina stringā visas x vērtības uz y vērtībām
+void replaceChar(char* string, char x, char y);
+
 #endif //SHARED_H
