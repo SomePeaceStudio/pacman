@@ -398,7 +398,8 @@ void updateState(){
             if((int)*nextMapTile == MTYPE_POWER){
                 debug_print("%s\n", "Packman collides with Powerup.");
                 *nextMapTile = MTYPE_EMPTY;
-                // TODO: Do something
+                current->object.state = PLSTATE_POWERUP;
+                current->object.stateTimer = 20;
             }
             if((int)*nextMapTile == MTYPE_INVINCIBILITY){
                 debug_print("%s\n", "Packman collides with Invincibility.");
@@ -414,6 +415,32 @@ void updateState(){
         if(canMove){
             *x+=xSpeed;
             *y+=ySpeed; 
+        }
+    }
+    // Atjaunina spēlētāju stāvokļus
+    for(objectNode_t *i = STATE; i != 0; i = i->next){
+        // Atjunina spēlētāja stāvokli
+        if(i->object.stateTimer > 0){
+            i->object.stateTimer--;
+        }
+        // Nepieciešamas stāvokļa izmaiņas
+        if(i->object.stateTimer == 0){
+            // Pacman
+            if(i->object.type == PLTYPE_PACMAN){
+                if(i->object.state = PLSTATE_POWERUP){
+                    i->object.state = PLSTATE_LIVE;
+                    i->object.stateTimer = -1;
+                }
+            }
+            // Ghost
+            if(i->object.type == PLTYPE_GHOST){
+                //TODO: veikt spoka pārvietošanu, kad atdzīvina.
+                if(i->object.state = PLSTATE_DEAD){
+                    i->object.state = PLSTATE_LIVE;
+                    i->object.stateTimer = -1;
+                }
+            }
+
         }
     }
     // Pārbaudīt spēlētāju kolīzijas Pacman/Ghost
@@ -467,12 +494,28 @@ void updateState(){
             printf("%f<=%f && %f>=%f && %f<=%f && %f>=%f\n\n",\
                 ix1,jx2,ix2,jx1,iy1,jy2,iy2,jy1);
             if(ix1<=jx2 && ix2>=jx1 && iy1<=jy2 && iy2>=jy1){
-                // Pacman tiek apēsts
+                // Notiek kolīzija
+                // TODO: uzkopt kodu
                 if(i->object.type == PLTYPE_PACMAN){
+                    // Gadījumā ja pacman ir apēdis powerup
+                    if(i->object.state == PLSTATE_POWERUP){
+                        j->object.state = PLSTATE_DEAD;
+                        j->object.stateTimer = 5;
+                        i->object.points +=100;
+                        continue;
+                    }
                     i->object.state = PLSTATE_DEAD;
+                    i->object.stateTimer = -1;
                     j->object.points +=1;
                 }else{
+                    if(j->object.state == PLSTATE_POWERUP){
+                        i->object.state = PLSTATE_DEAD;
+                        i->object.stateTimer = 5;
+                        j->object.points +=100;
+                        continue;
+                    }
                     j->object.state = PLSTATE_DEAD;
+                    j->object.stateTimer = -1;
                     i->object.points +=1;
                 }
             }
@@ -811,6 +854,7 @@ void initNewPlayer(int id, int type, char *name){
     newPlayer.points = 0;
     setSpawnPoint(&newPlayer.x, &newPlayer.y);
     newPlayer.state = PLSTATE_LIVE;
+    newPlayer.stateTimer = -1;
     newPlayer.mdir = DIR_NONE;
     newPlayer.disconnected = 0;
     newPlayer.sockets.udp = 0;
@@ -908,10 +952,10 @@ int deleteObjectNode(objectNode_t **start, objectNode_t *node){
 void printPlayerList(objectNode_t *start){
     printf("%s\n", "===========PLAYERS===========");
     for(objectNode_t *current = start; current != 0; current = current->next){
-        printf("ID: %1d Type: %d X: %2f Y: %2f ST: %d\nName: %s Points: %d MDir: %d\n\n",\
+        printf("ID: %1d Type: %d X: %2f Y: %2f ST: %d STt: %d\nName: %s Points: %d MDir: %d\n\n",\
            current->object.id, current->object.type, current->object.x, \
-           current->object.y, current->object.state, current->object.name, \
-           current->object.points, current->object.mdir);
+           current->object.y, current->object.state, current->object.stateTimer, \
+           current->object.name, current->object.points, current->object.mdir);
     }
     printf("Total count: %d\n", playerCount);
     printf("%s\n", "=============================");
@@ -977,6 +1021,7 @@ void getNewMap(char* filename){
 void resetPlayers(objectNode_t *start){
     for(objectNode_t *current = start; current != 0; current = current->next){
             current->object.state = PLSTATE_LIVE;
+            current->object.stateTimer = -1;
             setSpawnPoint(&current->object.x,&current->object.y);
             current->object.points = 0;
             current->object.mdir = DIR_NONE;
@@ -1008,7 +1053,8 @@ int isPointsLeft(){
 
 int isAnyPacmanLive(objectNode_t *start){
     for(objectNode_t *current = start; current != 0; current = current->next){
-        if(current->object.state == PLSTATE_LIVE &&\
+        if((current->object.state == PLSTATE_LIVE     ||\
+            current->object.state == PLSTATE_POWERUP) &&\
             current->object.type == PLTYPE_PACMAN)
         {
 

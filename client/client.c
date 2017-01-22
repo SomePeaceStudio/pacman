@@ -11,9 +11,6 @@
 // Shared functions for client and server
 #include "../shared/shared.h"
 
-//TODO: saņemt END paketi
-//TODO: saņemt START paketi ik reizes, kad beidzas mačš
-
 // Globals
 char **MAP;
 int mapWidth;
@@ -34,6 +31,7 @@ int sendQuit(int sock);
 void readMessage(int sock);
 int readTCPPacket(int sock);
 void readStart(int sock);
+void readJoined(int sock);
 
 // ========================================================================= //
 
@@ -353,8 +351,18 @@ int readTCPPacket(int sock){
         readStart(sock);
         return 0;
     }
+    if(packtype == PTYPE_JOINED){
+        debug_print("%s\n", "Receiving JOINED. ");
+        readJoined(sock);
+        return 0;
+    }
     debug_print("Received <UNKNOWN> TCP packtype: %d playerID: %d\n", (int)packtype, playerId);
     return 1;
+}
+void readJoined(int sock){
+    char pack[PSIZE_JOINED-1];
+    safeRecv(sock, pack, PSIZE_JOINED-1, 0);
+    //TODO: do something
 }
 void readMessage(int sock){
     char header[8];
@@ -376,7 +384,7 @@ void readMessage(int sock){
     
     debug_print("%s\n", "Reading Map File...");
     if(fprintf(chatFile, "[From: id-%d] %s\n",messageId, message) == 0){
-        Die("Could not read map's widht and height");
+        printf("%s\n", "Error while writting in chat.");
     }
     fflush(chatFile);
     free (message);

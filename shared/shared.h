@@ -65,7 +65,8 @@
 // Spēlētāja stāvoklis
 #define PLSTATE_LIVE 0
 #define PLSTATE_DEAD 1
-#define PLSTATE_POWERUP 2
+#define PLSTATE_POWERUP 3
+#define PLSTATE_INVINCIBILITY 4
 
 // Spēlētāja tips
 #define PLTYPE_PACMAN 0
@@ -108,6 +109,9 @@ typedef struct {
     float y;
     char mdir;          // Kurstības virziens (move direction) glabā DIR_.. vērtību
     char state;         // PLSTATE_
+    int stateTimer;     // Nosaka cik ilgi būs attiecīgais stāvoklis 
+                        // (powerup, invincibility, dead, live utt.)
+                        // -1 - nemainīgs, 0 - iztecējis, 1+ - tekošs
     volatile int8_t disconnected;   // Globālais mainīgais, lai konstatētu, kad spēlētājs
                                     // ir atvienojies no servera
     sockets_t sockets;     // Spēlētāja UDP un TCP soketi
