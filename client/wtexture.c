@@ -90,7 +90,11 @@ void wtexture_free(WTexture* wtexture) {
     }
 }
 
-void wtexture_render(
+void wtexture_render(WTexture* wt, SDL_Renderer* renderer, int x, int y, SDL_Rect* clip) {
+    wtexture_render_2(wt, renderer, x, y, clip, 0, NULL, SDL_FLIP_NONE);
+}
+
+void wtexture_render_2(
     WTexture* wtexture,
     SDL_Renderer* renderer,
     int x,

@@ -7,7 +7,9 @@
 #include "player.h"
 #include "../shared/shared.h"
 
-void game_showMainWindow(
+typedef enum { GS_LOG_OUT, GS_QUIT } GameStatus;
+
+GameStatus game_showMainWindow(
     Player* me, sockets_t* sock, struct sockaddr_in* serverAddress);
 
 #endif //GAME_H

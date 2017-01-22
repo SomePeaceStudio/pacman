@@ -16,7 +16,8 @@ typedef struct {
 void wtexture_fromFile(WTexture* wtexture, SDL_Renderer* renderer, const char* path);
 bool wtexture_fromText(WTexture* wtexture, SDL_Renderer* renderer, TTF_Font* font, SDL_Color textColor, SDL_Color bgColor, const char* text);
 void wtexture_free(WTexture* wtexture);
-void wtexture_render(
+void wtexture_render(WTexture* wt, SDL_Renderer* renderer, int x, int y, SDL_Rect* clip);
+void wtexture_render_2(
     WTexture* wtexture,
     SDL_Renderer* renderer,
     int x,
