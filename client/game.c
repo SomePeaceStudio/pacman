@@ -198,6 +198,11 @@ GameStatus game_showMainWindow(
             clipMax(levelWidth, dm.w),
             clipMax(levelHeight, dm.h)
         );
+        
+        //Ja nācās mainīt loga izmēru, tad atjauno kameras taisnstūri
+        SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+        camera.w = windowWidth;
+        camera.h = windowHeight;
     }
 
     //Pavedieni, kas saņems attiecīgi TCP un UDP paketes
@@ -301,9 +306,9 @@ GameStatus game_showMainWindow(
                     
                 case SDLK_ESCAPE:
                     if (e.key.repeat == 0) {
-                        printf("pause\n");
                         if (textInputActive) {
                             textInputActive = false;
+                            SDL_StopTextInput();
                         } else {
                             pause = !pause;
                         }
@@ -323,9 +328,7 @@ GameStatus game_showMainWindow(
                 case SDLK_2:
                     if (e.key.repeat == 0) {
                         if (pause) {
-                            printf("Sending QUIT\n");
                             net_sendQuit(sock->tcp, me->id);
-                            printf("Sent QUIT\n");
                             returnStatus = GS_LOG_OUT;
                             quit = true;
                         }
@@ -516,7 +519,7 @@ void renderPauseScreen(SDL_Renderer* renderer, TTF_Font* font, int windth, int h
     SDL_Color bgColor = {.r = 0, .g = 0, .b = 0};
     
     if (wtResume.texture == NULL) {
-        printf("Initializing\n");
+        debug_print("%s\n", "Initializing");
         wtexture_fromText(&wtResume, renderer, font, textColor, bgColor, "1: Resume");
         wtexture_fromText(&wtLogOut, renderer, font, textColor, bgColor, "2: Log out");
         wtexture_fromText(&wtQuit, renderer, font, textColor, bgColor, "3: Quit");
