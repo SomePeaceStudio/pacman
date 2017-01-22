@@ -58,6 +58,8 @@
 
 
 #define MAX_NICK_SIZE 20
+#define MAX_MESSAGE_SIZE 255 // Priekš message ielasīšanas bufera
+
 // Paketes maksimālais izmērs, kad pakete tiek devinēta statiski
 #define DEFAULT_PACK_SIZE 1024
 
@@ -65,7 +67,8 @@
 // Spēlētāja stāvoklis
 #define PLSTATE_LIVE 0
 #define PLSTATE_DEAD 1
-#define PLSTATE_POWERUP 2
+#define PLSTATE_POWERUP 3
+#define PLSTATE_INVINCIBILITY 4
 
 // Spēlētāja tips
 #define PLTYPE_PACMAN 0
@@ -108,6 +111,9 @@ typedef struct {
     float y;
     char mdir;          // Kurstības virziens (move direction) glabā DIR_.. vērtību
     char state;         // PLSTATE_
+    int stateTimer;     // Nosaka cik ilgi būs attiecīgais stāvoklis 
+                        // (powerup, invincibility, dead, live utt.)
+                        // -1 - nemainīgs, 0 - iztecējis, 1+ - tekošs
     volatile int8_t disconnected;   // Globālais mainīgais, lai konstatētu, kad spēlētājs
                                     // ir atvienojies no servera
     sockets_t sockets;     // Spēlētāja UDP un TCP soketi
@@ -147,5 +153,8 @@ void ftoba(float number, unsigned char buffer[4]);
 int clipMin(int number, int min);
 int clipMax(int number, int max);
 int clipBoth(int number, int min, int max);
+
+// Nomaina stringā visas x vērtības uz y vērtībām
+void replaceChar(char* string, char x, char y);
 
 #endif //SHARED_H
