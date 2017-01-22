@@ -42,6 +42,12 @@ int gameTicks = 20; // Cik daudz spēles cikli izskrien vienā sekundē
 float playerSpeed = 0.1; // Spēlētāju ātrums lauciņi/game-tick
 float powerPelletLength = 10; // Sekundes
 float ghostDeadTime = 5; // Sekundes
+// 0 > x > 1
+float pacmanWidth   = 0.9;  
+float pacmanHeight  = 0.9; 
+float ghostWidth    = 0.9;   
+float ghostHeight   = 0.9;
+int gameNeverEnds = 0; // lai varētu testēt 1x1 karti
 
 // ========================================================================= //
 
@@ -100,8 +106,11 @@ void* mainGameLoop(){
         updateState();
         usleep(getMGLdelay());
 
-        // Nosaka vai ir spēles beigas 
-        END = isGameEnd();
+        // Nosaka vai ir spēles beigas,
+        // ja nav uzstādīts, gameNeverEnds karodziņš.
+        if(!gameNeverEnds){
+            END = isGameEnd();    
+        } 
         while(END){
             while(playerCount == 0){}
             debug_print("%s\n", "Reseting Game!");
@@ -125,6 +134,8 @@ void* actionThread(void *parm){
     int32_t playerId = ((action_thread_para_t*)parm)->id;
     char pack[1024];
     object_t *player;
+    //sleep(2);   // Reizēm klients tik ātri neatver UDP soketu un serveris viņu
+                // priekšlaicīgi atvieno.
     while(1){
         memset(&pack, 0, 1024);
 
@@ -338,74 +349,126 @@ void updateState(){
     float xSpeed, ySpeed;   // Spēlētāja x un y ātrums;
     char *nextMapTile;      // Kartes lauciņš uz kuru spēlētājs pārvietosies
     float tileSize = 1;     // vienas rūtiņas platums
-    // NOTE: tiem pagaidām ņemti vērā tikai spēlētāju kolīzijās, ja izmēri tiek
+    // NOTE: tiek pagaidām ņemti vērā tikai spēlētāju kolīzijās, ja izmēri tiek
     // mainīti būs nepieciešams pārrakstīt Spēlētāju/Kartes obj. kolīzijas
-    float pacmanWidth   = 0.9; // < 1 lai spawnojoties uzreiz nesaskartos  
-    float pacmanHeight  = 0.9; 
-    float ghostWidth    = 0.9;   
-    float ghostHeight   = 0.9;  
+
+    // i - viens spēlētājs j - otrs spēlētājs
+    float iWidth, iHeight, jWidth, jHeight;
+    // x1 - kreisās malas viduspunkts
+    // x2 - labās malas viduspunkts
+    // y1 - augšējās malas viduspunkts
+    // y2 - apakšējās malas viduspunkts
+    float ix1,ix2,iy1,iy2,jx1,jx2,jy1,jy2;    
 
     // Veicam visas kustības visiem spēlētājiem atkarībā no to kursības virziena
     // Apskatām visas kolīzijas ar kartes objektiem
-    for(objectNode_t *current = STATE; current != 0; current = current->next){
+    for(objectNode_t *i = STATE; i != 0; i = i->next){
         // Iegūstam koordinātes un kustības virzienu
-        x = &(current->object.x);
-        y = &(current->object.y);
-        mdir = (int)(current->object.mdir);
+        x = &(i->object.x);
+        y = &(i->object.y);
+        mdir = (int)(i->object.mdir);
+        
+        // Iegūstas spēlētāja tipa izmērus
+        if(i->object.type == PLTYPE_PACMAN){
+            iWidth = pacmanWidth;
+            iHeight = pacmanHeight;
+        }else{
+            iWidth = ghostWidth;
+            iHeight = ghostHeight;
+        }
 
         // Atšifrējam kustības virzienu kā ātrumu x/y virzienā
+        // Pārveidojam spēlētāja izmērus, kā vektoru kustības virzienā.
         xSpeed = 0; ySpeed = 0;
         if(mdir == DIR_UP){
             ySpeed = -speed;
+            iHeight = -(iHeight/2);
+            iWidth = 0;
         }else if( mdir == DIR_DOWN ){
             ySpeed = speed;
+            iHeight = iHeight/2;
+            iWidth = 0;
         }else if( mdir == DIR_LEFT ){
             xSpeed = -speed;
+            iWidth = -(iWidth/2);
+            iHeight = 0;
         }else if( mdir == DIR_RIGHT ){
             xSpeed = speed;
+            iWidth = iWidth/2;
+            iHeight = 0;
         }else if ( mdir == DIR_NONE){
             continue;
         }
 
         // Spēlētājs mēģina iziet ārpus kartes robežām
         if((int)floorf(*y+ySpeed+tileSize/2) >= MAPHEIGHT){
+            printf("Going out of +y, y: %f ySpeed: %f tile/2:%f MAPH: %d\n", *y,ySpeed,tileSize/2,MAPHEIGHT);
             *y+=ySpeed-MAPHEIGHT;
             continue; 
         }
         if((int)floorf(*y+ySpeed+tileSize/2) < 0){
+            printf("Going out of -y, y: %f ySpeed: %f tile/2:%f MAPH: %d\n", *y,ySpeed,tileSize/2,MAPHEIGHT);
             *y+=ySpeed+MAPHEIGHT;
             continue; 
         }
         if((int)floorf(*x+xSpeed+tileSize/2) >= MAPWIDTH){
+            printf("Going out of -x, x: %f xSpeed: %f tile/2:%f MAPH: %d\n", *x,xSpeed,tileSize/2,MAPWIDTH);
             *x+=xSpeed-MAPWIDTH;
             continue;  
         }
         if((int)floorf(*x+xSpeed+tileSize/2) < 0){
+            printf("Going out of -x, x: %f xSpeed: %f tile/2:%f MAPH: %d\n", *x,xSpeed,tileSize/2,MAPWIDTH);
             *x+=xSpeed+MAPWIDTH;
             continue;  
         }
 
         canMove = 1;
-        nextMapTile = &MAP[(int)floorf(*y+ySpeed+tileSize/2)][(int)floorf(*x+xSpeed+tileSize/2)];
+        
+        // Aprēķināk kurš masīva elements ir jāapskata virzoties uz priekšu
+        int heightIndex=(int)floorf(*y+ySpeed+iHeight+tileSize/2);
+        int widthIndex=(int)floorf(*x+xSpeed+iWidth+tileSize/2);
+        printf("iWidth: %f iHeight: %f\n", iWidth, iHeight);
+        
+        // Pārbauda vai netiek izvēlēts masīva elements ārpus robežām,
+        // ja tiek, tad to sadala ar robežas izmēru un apstrādā atlikumu
+        if(heightIndex > MAPHEIGHT-1){
+            heightIndex = heightIndex % MAPHEIGHT;
+        }
+        if(heightIndex < 0){
+            heightIndex = (heightIndex % MAPHEIGHT)+MAPHEIGHT-1;
+        }
+        if(widthIndex > MAPWIDTH-1){
+            widthIndex = widthIndex % MAPWIDTH;
+        }
+        if(widthIndex < 0){
+            widthIndex = (widthIndex % MAPWIDTH)+MAPWIDTH-1;
+        }
+
+        // printf("+++++++++++++++++++++++++++++\nNEXT MAPTILE CALCULATIONS: [%2f,%2f]\n GOT TILE [%2d,%2d]\n AFTER VALIDITY CHECK: [%2d,%2d]\n+++++++++++++++++++++++++++++\n",\
+        //         *y+ySpeed+iHeight+tileSize/2, *x+xSpeed+iWidth+tileSize/2,\
+        //         (int)floorf(*y+ySpeed+iHeight+tileSize/2),(int)floorf(*x+xSpeed+iWidth+tileSize/2),\
+        //         heightIndex,widthIndex);
+
+        nextMapTile = &MAP[heightIndex][widthIndex];
         // Kolīzijas
-        if(current->object.type == PLTYPE_PACMAN || current->object.type == PLTYPE_GHOST){
+        if(i->object.type == PLTYPE_PACMAN || i->object.type == PLTYPE_GHOST){
             // Kolīzija ar sienu
             if((int)*nextMapTile == MTYPE_WALL){
                 debug_print("%s\n", "Player collides with wall.");
                 canMove = 0;
             }                  
         }
-        if(current->object.type == PLTYPE_PACMAN){
+        if(i->object.type == PLTYPE_PACMAN){
             if((int)*nextMapTile == MTYPE_DOT){
                 debug_print("%s\n", "Packman collides with Point.");
                 *nextMapTile = MTYPE_EMPTY;
-                current->object.points += 1;
+                i->object.points += 1;
             }
             if((int)*nextMapTile == MTYPE_POWER){
                 debug_print("%s\n", "Packman collides with Powerup.");
                 *nextMapTile = MTYPE_EMPTY;
-                current->object.state = PLSTATE_POWERUP;
-                current->object.stateTimer = getGameTicks(powerPelletLength);
+                i->object.state = PLSTATE_POWERUP;
+                i->object.stateTimer = getGameTicks(powerPelletLength);
             }
             if((int)*nextMapTile == MTYPE_INVINCIBILITY){
                 debug_print("%s\n", "Packman collides with Invincibility.");
@@ -415,7 +478,7 @@ void updateState(){
             if((int)*nextMapTile == MTYPE_SCORE){
                 debug_print("%s\n", "Packman collides with Extra points.");
                 *nextMapTile = MTYPE_EMPTY;
-                current->object.points += 10;
+                i->object.points += 10;
             }                   
         }
         if(canMove){
@@ -450,12 +513,6 @@ void updateState(){
         }
     }
     // Pārbaudīt spēlētāju kolīzijas Pacman/Ghost
-    float iWidth, iHeight, jWidth, jHeight;
-    // x1 - kreisās malas viduspunkts
-    // x2 - labās malas viduspunkts
-    // y1 - augšējās malas viduspunkts
-    // y2 - apakšējās malas viduspunkts
-    float ix1,ix2,iy1,iy2,jx1,jx2,jy1,jy2;
     for(objectNode_t *i = STATE; i != 0; i = i->next){
         // Mirušiem spēlētājiem neveic aprēķinus
         if(i->object.state == PLSTATE_DEAD){
