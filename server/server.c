@@ -36,11 +36,19 @@ volatile int playerCount = 0;   // Pašreizējais spēlētāju skaits
 volatile short END = 1;         // Nosaka vai spēle ir beigusies
 volatile int randSeed = 1;      // seed priekš rand; 
 pthread_t  mainGameThread;      // Galvenais GAME-LOOP
-thread_pool_t threadPool;  
+thread_pool_t threadPool;
+//TODO: izveidot konfig failu priekš šiem lielumiem:
+int gameTicks = 20; // Cik daudz spēles cikli izskrien vienā sekundē
+float playerSpeed = 0.1; // Spēlētāju ātrums lauciņi/game-tick
+float powerPelletLength = 10; // Sekundes
+float ghostDeadTime = 5; // Sekundes
 
 // ========================================================================= //
 
-int getId() { return ID++; }
+int getId() { return ID++; };
+int getMGLdelay(){ return 1000000/gameTicks; }; //Main game loop (MGL) delay: ns
+// Aprēķina game-tick daudzumu pēc padoto sekunžu daudzuma
+int getGameTicks(float length){ return (length*1000000)/getMGLdelay(); }; 
 void addObjectNode(objectNode_t **start, objectNode_t *newNode);
 void addObjectNodeEnd(objectNode_t **start, objectNode_t *newNode);
 objectNode_t *createObjectNode(object_t* gameObj);
@@ -90,8 +98,7 @@ void* mainGameLoop(){
     while(1){
         // Pavirza spēlētājus uz priekšu
         updateState();
-        // usleep(250000); //250 milisekundes
-        sleep(1);
+        usleep(getMGLdelay());
 
         // Nosaka vai ir spēles beigas 
         END = isGameEnd();
@@ -218,8 +225,7 @@ void* handleClient(void *sockets) {
         // Sūta Spēlētāju punktus
         sendScores(sockUDP);
 
-        sleep(1);
-        // usleep(250000); //250 milisekundes
+        usleep(getMGLdelay());
     }
 
     debug_print("%s\n", "Client Disconnected, closing threads...");
@@ -328,7 +334,7 @@ void updateState(){
     int mdir;
     int canMove;            // Vai gājienu var izdarīt (vai priekšā nav siena)
     //FIXME: Mainot speed uz mazāku spēlētājs var ieiet sienā
-    float speed = 1;        // Vina gājiena lielums vienā game-tick
+    float speed = playerSpeed; // Vina gājiena lielums vienā game-tick
     float xSpeed, ySpeed;   // Spēlētāja x un y ātrums;
     char *nextMapTile;      // Kartes lauciņš uz kuru spēlētājs pārvietosies
     float tileSize = 1;     // vienas rūtiņas platums
@@ -399,7 +405,7 @@ void updateState(){
                 debug_print("%s\n", "Packman collides with Powerup.");
                 *nextMapTile = MTYPE_EMPTY;
                 current->object.state = PLSTATE_POWERUP;
-                current->object.stateTimer = 20;
+                current->object.stateTimer = getGameTicks(powerPelletLength);
             }
             if((int)*nextMapTile == MTYPE_INVINCIBILITY){
                 debug_print("%s\n", "Packman collides with Invincibility.");
@@ -500,7 +506,7 @@ void updateState(){
                     // Gadījumā ja pacman ir apēdis powerup
                     if(i->object.state == PLSTATE_POWERUP){
                         j->object.state = PLSTATE_DEAD;
-                        j->object.stateTimer = 5;
+                        j->object.stateTimer = getGameTicks(ghostDeadTime);
                         i->object.points +=100;
                         continue;
                     }
@@ -510,7 +516,7 @@ void updateState(){
                 }else{
                     if(j->object.state == PLSTATE_POWERUP){
                         i->object.state = PLSTATE_DEAD;
-                        i->object.stateTimer = 5;
+                        i->object.stateTimer = getGameTicks(ghostDeadTime);
                         j->object.points +=100;
                         continue;
                     }
