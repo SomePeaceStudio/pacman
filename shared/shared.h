@@ -127,6 +127,7 @@ typedef struct {
 // ========================== PROTOTIPI ==================================== //
 
 void Die(char *mess);
+void* safeMalloc(size_t size);
 int safeSend(int sockfd, const void *buf, size_t len, int flags);
 int safeRecv(int sockfd, void *buf, size_t len, int flags);
 int serverRecv(int sockfd, void *buf, size_t len, int flags);

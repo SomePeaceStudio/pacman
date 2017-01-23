@@ -13,6 +13,16 @@ void Die(char *mess) { perror(mess); exit(1); }
 
 // ========================================================================= //
 
+void* safeMalloc(size_t size) {
+    void* buffer = malloc(size);
+    if (buffer == NULL) {
+        Die(ERR_MALLOC);
+    }
+    return buffer;
+}
+
+// ========================================================================= //
+
 int safeSend(int sockfd, const void *buf, size_t len, int flags){
     int sent;
     if ((sent = send(sockfd, buf, len, flags)) != len) {
