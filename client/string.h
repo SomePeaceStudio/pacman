@@ -23,4 +23,6 @@ void str_popBack(string* str);
 //Izdrukā string (debugošanai)
 void str_print(string* str);
 
+size_t str_length(string* str);
+
 #endif //STRING_H

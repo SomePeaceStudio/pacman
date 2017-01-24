@@ -10,12 +10,16 @@
 #include "network.h"
 #include "string.h"
 #include "pausescreen.h"
+#include "chat.h"
 #include "../shared/hashmap.h"
 
 //72, jo serveris vairāk nesūtīs (1024 baitu buferī vairāk nesaiet)
 #define PLAYER_COUNT_MAX 72
 
 #define FONT_SIZE 15
+
+//Ziņu skaits, kas rādīsies čatā
+#define CHAT_CAPACITY 10
 
 //Nodefinē hashmap priekš int atslēgām un Player tipa datiem
 HASHMAP_FUNCS_DECLARE(int, int32_t, Player);
@@ -29,7 +33,7 @@ void waitForStart();
 //Atgriež tekstu ar spēlētāju punktiem
 char** getScoreText(struct hashmap* hm_players, Player* me);
 //Uzzīmē spēlētāju nikus un punktu skaitus uz ekrāna
-void renderPlayerScores(SDL_Renderer* renderer, SDL_Color color, TTF_Font* font, char** scores, size_t lineCount);
+void renderPlayerScores(SDL_Renderer* renderer, TTF_Font* font, char** scores, size_t lineCount);
 //Uzzīmē spēles galveno izvēlni (kad nospiež ESC)
 void renderPauseScreen(SDL_Renderer* renderer, TTF_Font* font, int windth, int height);
 size_t getDigitCount(int32_t i); //Atgriež ciparu skaitu skaitlī
@@ -97,6 +101,7 @@ GameStatus game_showMainWindow(
     WTexture playerTexture;
     GameStatus returnStatus = GS_QUIT;
     PauseScreen pauseScreen;
+    Chat chat;
     
     //Nepieciešams, lai varētu noteikt, vai struktūras ir inicializētas
     memset(&tileTexture, 0, sizeof(WTexture));
@@ -177,6 +182,7 @@ GameStatus game_showMainWindow(
     }
     
     pause_new(&pauseScreen, renderer, font);
+    chat_new(&chat, CHAT_CAPACITY);
     
     //Uzzīmē logu
     surface = SDL_GetWindowSurface(window);
@@ -235,7 +241,8 @@ GameStatus game_showMainWindow(
         .me = me,
         .quit = &quit,
         .tiles = tileSet,
-        .hm_players = &hm_players
+        .hm_players = &hm_players,
+        .chat = &chat
     };
     
     //Uzstāda 1 sekundes timeout TCP un UDP socketiem, lai pavedieni negaidītu
@@ -264,7 +271,7 @@ GameStatus game_showMainWindow(
     SDL_StopTextInput();
     
     //Teksta krāsa
-    SDL_Color color = {.r = 180, .g = 180, .b = 180, .a = 100};
+    SDL_Color color = {.r = 230, .g = 230, .b = 230, .a = 180};
     bool showScores = false;
     bool pause = false;
     SDL_Event e;
@@ -292,7 +299,7 @@ GameStatus game_showMainWindow(
                     break;
                     
                 case SDLK_SLASH:
-                    if (e.key.repeat == 0) {
+                    if (e.key.repeat == 0 && !(e.key.keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT))) {
                         if (textInputActive) {
                             SDL_StopTextInput();
                             str_free(&chatMessage);
@@ -349,8 +356,16 @@ GameStatus game_showMainWindow(
                     }
                     break;
                     
+                case SDLK_RETURN:
+                    if (textInputActive && str_length(&chatMessage) > 0) {
+                        net_sendChat(sock->tcp, me->id, chatMessage.buffer);
+                        textInputActive = false;
+                        SDL_StopTextInput();
+                    }
+                    break;
+                    
                 default:
-                    if (e.key.repeat == 0 && !pause) {
+                    if (e.key.repeat == 0 && !pause && !textInputActive) {
                         game_handleInput(sock->udp, me->id, &e.key);
                     }
                     break;    
@@ -398,15 +413,14 @@ GameStatus game_showMainWindow(
         
         if (showScores) {
             char ** scores = getScoreText(&hm_players, me);
-            renderPlayerScores(renderer, color, font, scores, hashmap_size(&hm_players) + 1);
+            renderPlayerScores(renderer, font, scores, hashmap_size(&hm_players) + 1);
         }
         
         if (textInputActive) {
             //Uzzīmē pelēku fonu, kur ievadīt tekstu
             SDL_Rect chatBox = {.w = windowWidth, .h = 30, .x = 0, .y = windowHeight - 30};
-            SDL_SetRenderDrawColor(renderer, 70, 70, 70, 128);
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 170);
             SDL_RenderFillRect(renderer, &chatBox);
-            
             
             SDL_Color textColor = {.r = 230, .g = 230, .b = 230, .a = 230};
             SDL_Surface* textSurface = TTF_RenderText_Solid(font, chatMessage.buffer, textColor);
@@ -416,7 +430,7 @@ GameStatus game_showMainWindow(
                     .w = min(windowWidth, textSurface->w),
                     .h = textSurface->h,
                     .x = 0,
-                    .y = windowHeight - textSurface->h
+                    .y = windowHeight - textSurface->h - 8
                 };
                 
                 SDL_Rect clipRect = {
@@ -430,6 +444,7 @@ GameStatus game_showMainWindow(
                 SDL_RenderCopy(renderer, texture, &clipRect, &targetRect);
                 SDL_FreeSurface(textSurface);
             }
+            chat_render(&chat, renderer, font, windowWidth);
         }
         
         if (pause) {
@@ -495,12 +510,30 @@ char** getScoreText(struct hashmap* hm_players, Player* me) {
     return textLines;
 }
 
-void renderPlayerScores(SDL_Renderer* renderer, SDL_Color color, TTF_Font* font, char** scores, size_t lineCount) {
+void renderPlayerScores(SDL_Renderer* renderer, TTF_Font* font, char** scores, size_t lineCount) {
     //Vieta uz ekrāna, kur rezultāts tiks parādīts
     SDL_Rect targetRect = {.x = 8, .y = 8};
+    static SDL_Color* txtColor;
+    static SDL_Color* bgColor;
+    
+    if (txtColor == NULL) {
+        txtColor = malloc(sizeof(SDL_Color));
+        bgColor = malloc(sizeof(SDL_Color));
+        
+        txtColor->r = 240;
+        txtColor->g = 240;
+        txtColor->b = 240;
+        txtColor->a = 255;
+        
+        bgColor->r = 0;
+        bgColor->g = 0;
+        bgColor->b = 0;
+        bgColor->a = 255;
+    }
     
     for (int i = 0; i < lineCount; i++) {
-        SDL_Surface* textSurface = TTF_RenderText_Solid(font, scores[i], color);
+        // SDL_Surface* textSurface = TTF_RenderText_Solid(font, scores[i], color);
+        SDL_Surface* textSurface = TTF_RenderText_Shaded(font, scores[i], *txtColor, *bgColor);
         targetRect.w = textSurface->w;
         targetRect.h = textSurface->h;
         SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, textSurface);

@@ -109,3 +109,7 @@ void str_print(string* str) {
     
     printf("%s\n", str->buffer);
 }
+
+size_t str_length(string* str) {
+    return strlen(str->buffer);
+}
