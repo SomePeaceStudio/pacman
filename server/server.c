@@ -10,14 +10,15 @@
 #include <sys/ioctl.h>
 #include <stdbool.h>
 
-// Shared functions for client and server
+// Koplietošanas funkcijas ar klientu
 #include "../shared/shared.h"
 #include "../shared/threads.h"
 
-#define MAXPENDING 5    /* Max connection requests */
+#define MAXPENDING 5    // Cik daudz lietotāju var gaidīt, lai savienotos ar
+                        // serveri
 
 // ------------------------------------------------------------------------- //
-
+// Galvenā struktūra, kurā tiek glabāta visa informācija par spēlētāju 
 typedef struct objectNode{
     object_t object;
     struct objectNode *next;
@@ -25,23 +26,25 @@ typedef struct objectNode{
 
 // ------------------------------------------------------------------------- //
 
-int32_t ID = 1;
-objectNode_t *STATE;
+// Globālie mainīgie
+int32_t ID = 1; // Id priekš spēlētājiem
+objectNode_t *STATE; // Norāde uz pirmo spēlētāju 
 
-char* mapFileName;
-char** MAP;
-int MAPHEIGHT;
-int MAPWIDTH;
+char* mapFileName; // Spēles kartes nosaukums
+char** MAP; // Norāde uz spēles karti
+int MAPHEIGHT; // Kartes augstums
+int MAPWIDTH; // Kartes platums
 volatile int playerCount = 0;   // Pašreizējais spēlētāju skaits
 volatile short END = 1;         // Nosaka vai spēle ir beigusies
 volatile int randSeed = 1;      // seed priekš rand; 
 pthread_t  mainGameThread;      // Galvenais GAME-LOOP
-thread_pool_t threadPool;
+thread_pool_t threadPool;       // Pavedienu baseins
+
 //TODO: izveidot konfig failu priekš šiem lielumiem:
 int gameTicks = 20; // Cik daudz spēles cikli izskrien vienā sekundē
 float playerSpeed = 0.1; // Spēlētāju ātrums lauciņi/game-tick
-float powerPelletLength = 10; // Sekundes
-float ghostDeadTime = 5; // Sekundes
+float powerPelletLength = 10; // Sekundēs powerpellet ilgums
+float ghostDeadTime = 5; // Sekundēs spoku miršanas
 // 0 > x > 1
 float pacmanWidth   = 0.9;  
 float pacmanHeight  = 0.9; 
@@ -99,6 +102,7 @@ void* mainGameLoop();
 
 // ========================================================================= //
 
+// Galvenā spēles cilpa
 void* mainGameLoop(){
     END = 0;
     while(1){
@@ -129,12 +133,13 @@ void* mainGameLoop(){
 
 // ========================================================================= //
 
+// Funkcija priekš spēlētāju informācijas saņemšanu caur UDP
 void* actionThread(void *parm){
     int sock = ((action_thread_para_t*)parm)->socket;
     int32_t playerId = ((action_thread_para_t*)parm)->id;
     char pack[1024];
     object_t *player;
-    //sleep(2);   // Reizēm klients tik ātri neatver UDP soketu un serveris viņu
+    sleep(2);   // Reizēm klients tik ātri neatver UDP soketu un serveris viņu
                 // priekšlaicīgi atvieno.
     while(1){
         memset(&pack, 0, 1024);
@@ -171,6 +176,7 @@ void* actionThread(void *parm){
     debug_print("%s\n", "Exiting actionThread...");
 };
 
+// Funkcija priekš klientu apstrādes pavediena
 void* handleClient(void *sockets) {
     sockets_t* socketStruct = (sockets_t*)sockets;
     
@@ -206,7 +212,7 @@ void* handleClient(void *sockets) {
     sendStart(sockTCP, playerId);
    
 
-    // Main GAME loop
+    // Spēles cilpa
     while(1){
 
         // Nolasa TCP paketi, ja nolasīta ir QUIT, tad atgriež 2
@@ -239,6 +245,7 @@ void* handleClient(void *sockets) {
         usleep(getMGLdelay());
     }
 
+    // Uzkopšana pēc klienta atvienošanās
     debug_print("%s\n", "Client Disconnected, closing threads...");
     deleteObjectWithId(&STATE, playerId);
     sendPlayerDisconnected(playerId);
@@ -266,10 +273,10 @@ int main(int argc, char *argv[]) {
     }
     
     // --------- Izveidojam servera adreses struktūru ---------------------- //
-    memset(&gameserver, 0, sizeof(gameserver));       /* Clear struct */
-    gameserver.sin_family = AF_INET;                  /* Internet/IP */
-    gameserver.sin_addr.s_addr = htonl(INADDR_ANY);   /* Incoming addr */
-    gameserver.sin_port = htons(atoi(argv[1]));       /* server port */
+    memset(&gameserver, 0, sizeof(gameserver));       
+    gameserver.sin_family = AF_INET;                  // Internet/Ip
+    gameserver.sin_addr.s_addr = htonl(INADDR_ANY);   // Ienākošā adrese
+    gameserver.sin_port = htons(atoi(argv[1]));       // Servera ports
 
     // --------- Bindojam TCP soketus pie servera adreses ------------------ //
     if (bind(serversock, (struct sockaddr *) &gameserver,
@@ -290,12 +297,12 @@ int main(int argc, char *argv[]) {
     pthread_create(&mainGameThread, NULL, mainGameLoop,0);
 
 
-    /* Listen on the server socket */
+    // Klausās uz servera soketa
     if (listen(serversock, MAXPENDING) < 0) {
         Die("Failed to listen on server socket");
     }
 
-    /* Run until cancelled */
+    // Cikls priekš klientu pievienošanās apstrādes
     while (1) {
         unsigned int clientlen = sizeof(gameclient);
         // Gaidām TCP savienojumu
@@ -315,6 +322,8 @@ int main(int argc, char *argv[]) {
             continue;
         };
 
+        // Uzststādam udp SO_REUSEPORT karodziņu, lai varētu vairākus UDP soketus ar,
+        // vienu un to servera IP un porta nummuru izmantot.
         int optval = 1;
         setsockopt(clientSock.udp, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
         if (bind(clientSock.udp, (struct sockaddr *)&gameserver, sizeof(gameserver))<0){
@@ -323,6 +332,7 @@ int main(int argc, char *argv[]) {
             close(clientSock.udp);
             continue;
         };
+
         if (connect(clientSock.udp,(struct sockaddr *) &gameclient, clientlen) < 0) {
             debug_print("%s\n", ERR_CONNECT);
             close(clientSock.tcp);
@@ -344,13 +354,10 @@ void updateState(){
     float *x, *y;
     int mdir;
     int canMove;            // Vai gājienu var izdarīt (vai priekšā nav siena)
-    //FIXME: Mainot speed uz mazāku spēlētājs var ieiet sienā
     float speed = playerSpeed; // Vina gājiena lielums vienā game-tick
     float xSpeed, ySpeed;   // Spēlētāja x un y ātrums;
     char *nextMapTile;      // Kartes lauciņš uz kuru spēlētājs pārvietosies
     float tileSize = 1;     // vienas rūtiņas platums
-    // NOTE: tiek pagaidām ņemti vērā tikai spēlētāju kolīzijās, ja izmēri tiek
-    // mainīti būs nepieciešams pārrakstīt Spēlētāju/Kartes obj. kolīzijas
 
     // i - viens spēlētājs j - otrs spēlētājs
     float iWidth, iHeight, jWidth, jHeight;
@@ -444,11 +451,6 @@ void updateState(){
             widthIndex = (widthIndex % MAPWIDTH)+MAPWIDTH-1;
         }
 
-        // printf("+++++++++++++++++++++++++++++\nNEXT MAPTILE CALCULATIONS: [%2f,%2f]\n GOT TILE [%2d,%2d]\n AFTER VALIDITY CHECK: [%2d,%2d]\n+++++++++++++++++++++++++++++\n",\
-        //         *y+ySpeed+iHeight+tileSize/2, *x+xSpeed+iWidth+tileSize/2,\
-        //         (int)floorf(*y+ySpeed+iHeight+tileSize/2),(int)floorf(*x+xSpeed+iWidth+tileSize/2),\
-        //         heightIndex,widthIndex);
-
         nextMapTile = &MAP[heightIndex][widthIndex];
         // Kolīzijas
         if(i->object.type == PLTYPE_PACMAN || i->object.type == PLTYPE_GHOST){
@@ -473,7 +475,7 @@ void updateState(){
             if((int)*nextMapTile == MTYPE_INVINCIBILITY){
                 debug_print("%s\n", "Packman collides with Invincibility.");
                 *nextMapTile = MTYPE_EMPTY;
-                // TODO: Do something
+                // TODO: Nepieciešama apstrāde
             } 
             if((int)*nextMapTile == MTYPE_SCORE){
                 debug_print("%s\n", "Packman collides with Extra points.");
@@ -553,8 +555,8 @@ void updateState(){
             jy1 = j->object.y - jHeight/2;
             jy2 = j->object.y + jHeight/2;
             // Pārbauda vai objekti pārklājas
-            printf("\n\n%s\n", "Checking Collission");
-            printf("%f<=%f && %f>=%f && %f<=%f && %f>=%f\n\n",\
+            debug_print("%s\n", );("\n\n%s\n", "Checking Collission");
+            debug_print("%f<=%f && %f>=%f && %f<=%f && %f>=%f\n\n",\
                 ix1,jx2,ix2,jx1,iy1,jy2,iy2,jy1);
             if(ix1<=jx2 && ix2>=jx1 && iy1<=jy2 && iy2>=jy1){
                 // Notiek kolīzija
@@ -691,7 +693,7 @@ void sendPlayersState(int sock){
         currObj += 1;
     }
 
-    // Send MAP packet
+    // Nosūta MAP paketi
     debug_print("Sending %d PLAYERS... packSize: %d\n", batoi(&pack[1]), packSize);
     printPlayerList(STATE);
     safeSend(sock, pack, packSize, 0);
@@ -774,7 +776,6 @@ void sendBroadcast(char* pack, size_t length, bool useTcp) {
     for (objectNode_t* current = STATE; current != NULL; current = current->next) {
         int sock = useTcp ? current->object.sockets.tcp : current->object.sockets.udp;
         if (sock != 0) {
-            printf("%s\n", "SENDING!!!!!!! Broadcast!!");
             safeSend(sock, pack, length, 0);
         }
     }
@@ -866,7 +867,6 @@ int readTCPPacket(int sock, int32_t playerId){
 
 // ========================================================================= //
 
-//TODO: Randomizēt
 void setSpawnPoint(float *x, float *y){
     // Iegūst samērā nejaušu punktu 2D masīvā
     srand(randSeed++); // Maina rand seed ik reiz pirms izmantošanas
@@ -893,7 +893,7 @@ void setSpawnPoint(float *x, float *y){
             }
         }
     }
-    //TODO: Do something.
+    //TODO: Nepieciešama apstrāde.
     debug_print("%s\n", "Could not find any free spawn place.");
 }
 
@@ -931,12 +931,12 @@ void initNewPlayer(int id, int type, char *name){
 
 void addObjectNode(objectNode_t **start, objectNode_t *newNode){
     playerCount++;
-    // If List is empty
+    // Ja saraksts ir tukšs
     if(*start == 0){
         *start = newNode;
         return;
     }
-    // If List not empty
+    // Ja saraksts nav tukšs
     newNode->next = *start;
     *start = newNode;
 }
@@ -945,12 +945,12 @@ void addObjectNode(objectNode_t **start, objectNode_t *newNode){
 
 void addObjectNodeEnd(objectNode_t **start, objectNode_t *newNode){
     playerCount++;
-    // If List is empty
+    // Ja saraksts ir tukšs
     if(*start == 0){
         *start = newNode;
         return;
     }
-    // If List not empty
+    // Ja saraksts nav tukšs
     for(objectNode_t *current = *start; current != 0; current = current->next){
         if(current->next == 0){
             current->next = newNode;
@@ -964,7 +964,7 @@ void addObjectNodeEnd(objectNode_t **start, objectNode_t *newNode){
 objectNode_t *createObjectNode(object_t* gameObj){
     objectNode_t *newNode;
     newNode = (objectNode_t*)malloc(sizeof(objectNode_t));
-    // If did not allocate memory
+    // Ja netika alokēta atmiņa
     if( newNode == NULL ){
         printf(ERR_MALLOC);
         exit(1);
@@ -992,13 +992,13 @@ void deleteObjectWithId(objectNode_t **start, int id){
 
 int deleteObjectNode(objectNode_t **start, objectNode_t *node){
     objectNode_t* tmp = *start;
-    // Node is head
+    // Ja dzēšamais objekts ir pirmais sarakstā
     if(*start == node){
         *start = (*start)->next;
         free(tmp);
         return 0;
     }
-    // Node is not head
+    // Ja dzēšamais objekts nav pirmais sarakstā
     for(objectNode_t *current = (*start)->next; current != 0; current = current->next){
         if(current == node){
             tmp->next = current->next;
@@ -1026,6 +1026,7 @@ void printPlayerList(objectNode_t *start){
 
 // ------------------------------------------------------------------------- //
 
+// Atgriež spēlētāju ar norādīto id no spēlētāju saraksta, 0 - ja neatrada.
 object_t* getPlayer(objectNode_t *start, int id){
     for(objectNode_t *current = start; current != 0; current = current->next){
         if(current->object.id == id){
@@ -1037,6 +1038,7 @@ object_t* getPlayer(objectNode_t *start, int id){
 
 // ========================================================================= //
 
+// Atiestata spēli pēc mača beigām
 void resetGame(){
     // Ielasām jaunu mani no karšu kolekcijas
     // TODO: izveidot karšu kolekciju
