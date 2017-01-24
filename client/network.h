@@ -6,6 +6,7 @@
 #include "../shared/shared.h"
 #include "player.h"
 #include "tile.h"
+#include "chat.h"
 
 //Struktūra, ko padot net_handleTcpPackets un net_handleUdpPackets metodēm
 typedef struct {
@@ -18,6 +19,7 @@ typedef struct {
     SDL_Rect* camera;            //Kameras taisnstūris (domāts apcirpšanai)
     Player* me;                  //Pats spēlētājs
     bool* quit;                  //Nosaka, vai lietotājs vēlas iziet no spēles
+    Chat* chat;
     Tile* tiles;                 //Spēles karte
     struct hashmap* hm_players;  //Pārējie spēlētāji
 } thread_args_t;

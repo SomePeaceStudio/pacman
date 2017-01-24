@@ -25,7 +25,7 @@ void net_sendChat(int socket, int playerId, const char* message) {
     pack[0] = PTYPE_MESSAGE;                   //0. baits
     itoba(playerId, &pack[1]);                 //1. - 4. baits
     itoba(messageLength, &pack[5]);            //5. - 8. baits
-    strncpy(&pack[6], message, messageLength); //6. - pēdējais baits
+    strncpy(&pack[9], message, messageLength); //9. - pēdējais baits
     safeSend(socket, pack, packetLength, 0);
 }
 
@@ -177,6 +177,7 @@ void* net_handleUdpPackets(void* arg) {
 void* net_handleTcpPackets(void* arg) {
     thread_args_t* convertedArgs = (thread_args_t*)arg;
     
+    int32_t playerId;
     char packType;
     char* pack;
     size_t remainingLength;
@@ -188,8 +189,7 @@ void* net_handleTcpPackets(void* arg) {
         if (received != 1) {
             continue;
         }
-        
-        packType = receivePacktype(convertedArgs->sockets.tcp);
+
         switch (packType) {
         
         //Pēc label ievietots tukšs statement, lai nebūt compile-time kļūda
@@ -231,9 +231,42 @@ void* net_handleTcpPackets(void* arg) {
             remainingLength = PSIZE_PLAYER_DISCONNECTED - 1;
             pack = allocPack(remainingLength);
             safeRecv(convertedArgs->sockets.tcp, pack, remainingLength, 0);
-            int32_t playerId = batoi(pack);
+            playerId = batoi(pack);
             hashmap_int_remove(convertedArgs->hm_players, &playerId);
             free (pack);
+            break;
+            
+        case PTYPE_MESSAGE:
+            //Nolasa spēlētaja id un ziņas garumu
+            pack = allocPack(8);
+            safeRecv(convertedArgs->sockets.tcp, pack, 8, 0);
+            playerId = batoi(pack);
+            uint32_t messageLength = batoi(&pack[4]);
+            free(pack);
+            
+            //Nolasa atlikušo paketi (spēlētāja atstāto ziņu)
+            pack = allocPack(messageLength + 1);
+            safeRecv(convertedArgs->sockets.tcp, pack, messageLength, 0);
+            pack[messageLength] = '\0';
+            
+            //Atrod sūtītāja niku
+            const char* senderNick = NULL;
+            if (playerId == convertedArgs->me->id) {
+                senderNick = convertedArgs->me->nick;
+            } else {
+                Player* playerPtr = hashmap_int_get(convertedArgs->hm_players, &playerId);
+                if (playerPtr != NULL) {
+                    senderNick = playerPtr->nick;
+                }
+            }
+            
+            //Pievieno ziņu čatam
+            if (senderNick != NULL) {
+                debug_print("Message from %s: %s\n", senderNick, pack);
+                chat_add(convertedArgs->chat, senderNick, pack);
+            }
+            
+            free(pack);
             break;
         }
     }
