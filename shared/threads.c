@@ -4,9 +4,8 @@
 #include "threads.h"
 #include "shared.h"
 
-
+// Pieprasām atmiņu priekš noklusētā daudzuma pavedienu
 void initThreadPool(thread_pool_t *pool){
-    // Pieprasām atmiņu priekš noklusētā daudzuma pavedienu
     pool->data = malloc(TPOOL_DEFAULT_SIZE*sizeof(thread_elm_t));
     if(pool->data == 0){
         Die("Could not Allocate memory for initial thead pool size");
@@ -20,8 +19,8 @@ void initThreadPool(thread_pool_t *pool){
 
 // ------------------------------------------------------------------------- //
 
+// Atgriežam pirmo brīvo pavedienu
 pthread_t* getFreeThread(thread_pool_t *pool){
-    // Atgriežam pirmo brīvo pavedienu
     pthread_mutex_lock(&pool->mutex);
     int i;
     for (i = 0; i < pool->size; ++i){
@@ -40,6 +39,7 @@ pthread_t* getFreeThread(thread_pool_t *pool){
 
 // ------------------------------------------------------------------------- //
 
+// Divreiz palielina pavedienu baseina izmērus
 // Tiek pieņemts, ka doublePoolSize() tiks izmantots tikai iekš mutex_lock
 void doublePoolSize(thread_pool_t *pool){
     size_t currentSize = pool->size*sizeof(thread_elm_t);
@@ -52,6 +52,7 @@ void doublePoolSize(thread_pool_t *pool){
 
 // ========================================================================= //
 
+// Uzstāda pavedienu kā atkal izmantojamu
 void freeThread(thread_pool_t* pool, pthread_t thread){
     for (int i = 0; i < pool->size; ++i){
         if(pool->data[i].thread == thread){
@@ -64,6 +65,7 @@ void freeThread(thread_pool_t* pool, pthread_t thread){
 
 // ========================================================================= //
 
+// Saskaita brīvos pavedienus
 int countFreeThreads(thread_pool_t* pool){
     pthread_mutex_lock(&pool->mutex);
     int count = 0;

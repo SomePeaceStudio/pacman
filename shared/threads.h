@@ -4,17 +4,18 @@
 // Nosaka cik daudz pavedieni tiks inicializēti iekš pavedienu kopas
 #define TPOOL_DEFAULT_SIZE 5
 
+// Pavedienu baseina viena elementa struktūra
 typedef struct {
     pthread_t thread;
     short isFree;
 } thread_elm_t;
 
+// Struktūra priekš pavedienu baseina
 typedef struct {
     volatile thread_elm_t* data;    // Saglabā norādi uz pavedienu kopas sākumu
     volatile size_t size;           // Nosaka pavedienu skaitu
     pthread_mutex_t mutex;          // Lai varētu droši palielināt pavedienu 
                                     // skaitu
-    
 } thread_pool_t;
 
 
