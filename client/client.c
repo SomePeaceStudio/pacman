@@ -370,13 +370,13 @@ void readMessage(int sock){
     int32_t messageId; // Spēlētāja id ziņas paketē
     char* message;
 
-    serverRecv(sock, &header, 8, 0);
+    safeRecv(sock, &header, 8, 0);
 
     messageId = batoi(header);
     messageSize = batoi(&header[4]);
 
     message = allocPack(messageSize+1);
-    serverRecv(sock, message, messageSize, 0);
+    safeRecv(sock, message, messageSize, 0);
     message[messageSize] = '\0';
 
     printf("MESSAGE: %s, from client: %d\n",message, messageId);

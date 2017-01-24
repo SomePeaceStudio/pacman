@@ -76,6 +76,8 @@ void sendPlayerDisconnected(int32_t playerId);
 //Nosūta paketi visiem spēlētājiem. usTCP nosaka TCP/UDP
 void sendBroadcast(char* pack, size_t length, bool useTcp);
 int sendEnd(int sock);
+
+int serverRecv(int sockfd, void *buf, size_t len, int flags);
 int handleJoin(int sock, int32_t playerId);
 int readTCPPacket(int sock, int32_t playerId);
 int readQuit(int sock, int32_t playerId);
@@ -555,7 +557,7 @@ void updateState(){
             jy1 = j->object.y - jHeight/2;
             jy2 = j->object.y + jHeight/2;
             // Pārbauda vai objekti pārklājas
-            debug_print("%s\n", );("\n\n%s\n", "Checking Collission");
+            debug_print("\n\n%s\n", "Checking Collission");
             debug_print("%f<=%f && %f>=%f && %f<=%f && %f>=%f\n\n",\
                 ix1,jx2,ix2,jx1,iy1,jy2,iy2,jy1);
             if(ix1<=jx2 && ix2>=jx1 && iy1<=jy2 && iy2>=jy1){
@@ -1139,4 +1141,16 @@ void setPlayerDisconnected(int32_t playerId){
             return;
         }
     }
+}
+
+// ========================================================================= //
+ 
+int serverRecv(int sockfd, void *buf, size_t len, int flags){
+    int received;
+    if ((received = recv(sockfd, buf, len, flags)) <= 0 ) {
+        debug_print("%s\n","Failed to receive bytes");
+        return received;
+    }
+    debug_print("Received: %2d bytes, asked-max: %d\n", received,(int)len);
+    return received;
 }

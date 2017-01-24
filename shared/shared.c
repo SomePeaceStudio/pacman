@@ -1,5 +1,5 @@
 // ========================================================================= //
-//                  CLIENT & SERVER SHARED FUNCTIONS
+//                  CLIENT & SERVER KOPLIETOŠANAS FUNKCIJAS
 // ========================================================================= //
 
 #include <stdlib.h>
@@ -45,22 +45,11 @@ int safeRecv(int sockfd, void *buf, size_t len, int flags){
     // debug_print("Received: %2d bytes, asked-max: %d\n", received,(int)len);
     return received;
 }
-// ========================================================================= //
-
-int serverRecv(int sockfd, void *buf, size_t len, int flags){
-    int received;
-    if ((received = recv(sockfd, buf, len, flags)) <= 0 ) {
-        debug_print("%s\n","Failed to receive bytes");
-        return received;
-    }
-    debug_print("Received: %2d bytes, asked-max: %d\n", received,(int)len);
-    return received;
-}
 
 // ========================================================================= //
 
+// Dinamiski pieprasa atmiņu priekš paketes
 char* allocPack(int size){
-    // Init pack with 0 byte
     char* pack = (char*)calloc(1, size);
     if( pack == NULL ){
         Die("Error: Could not allocate memory");
@@ -70,6 +59,7 @@ char* allocPack(int size){
 
 // ========================================================================= //
 
+// Nolasa 1 baitu no soketa un atgriež vērtību
 char receivePacktype(int sock){
     char packtype;
     safeRecv(sock, &packtype, 1, 0);
@@ -79,6 +69,7 @@ char receivePacktype(int sock){
 
 // ========================================================================= //
 
+//Dinamiski pieprasa atmiņu spēles kartei
 char** allocateGameMap(int width, int height){
     char *data = (char *)malloc( width * height );
     if( data == NULL ){
@@ -99,6 +90,7 @@ char** allocateGameMap(int width, int height){
 
 // ========================================================================= //
 
+// Pārtulko kartes objektu ciparu reprezentācijas simbolos
 char* translateType(int type){
     if (type == -2){
         return ANSI_COLOR_BLUE "G" ANSI_COLOR_RESET;
@@ -129,7 +121,7 @@ char* translateType(int type){
 
 // ========================================================================= //
 
-// For debugging on server/client
+// Priekš atkļūdošanas server/client
 void printMap(char** map, int width, int height){
     for (int i = 0; i < height; ++i){
         for (int j = 0; j < width; ++j){

@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 // ========================================================================= //
-//                  CLIENT & SERVER SHARED FUNCTIONS
+//                  CLIENT & SERVER KOPLIETOŠANAS FUNKCIJAS
 // ========================================================================= //
 
 #define ANSI_COLOR_RED     "\x1b[31m"
@@ -97,11 +97,13 @@
 
 // ========================== STRUKTŪRAS =================================== //
 
+// Struktūra, lai saglabātu klienta UDP un TCP soketus.
 typedef struct {
     int tcp;
     int udp;
 } sockets_t;
 
+// Struktūra spēlētāju informācijas glabāšanai.
 typedef struct {
     char type;          // PLTYPE_ pacman vai ghost
     int id;             // Spēlētāja id
@@ -119,6 +121,8 @@ typedef struct {
     sockets_t sockets;     // Spēlētāja UDP un TCP soketi
 } object_t;
 
+// Struktūra priekš parametru padošanas funkcijai, kura apstrādā lietotāja
+// informāciju caur UDP soketu.
 typedef struct {
     int socket;
     int32_t id;
@@ -130,13 +134,12 @@ void Die(char *mess);
 void* safeMalloc(size_t size);
 int safeSend(int sockfd, const void *buf, size_t len, int flags);
 int safeRecv(int sockfd, void *buf, size_t len, int flags);
-int serverRecv(int sockfd, void *buf, size_t len, int flags);
 char* allocPack(int size);
 char receivePacktype(int sock);
 char** allocateGameMap(int width, int height);
 char* translateType(int type);
 
-// For debugging on server/client
+// Atkļūdošanai server/client
 void printMap(char** map, int width, int height);
 void printMappacPretty(char* mappac, int width, int height);
 void printMappac(char* mappac, int width, int height);
