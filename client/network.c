@@ -237,6 +237,7 @@ void* net_handleTcpPackets(void* arg) {
             break;
             
         case PTYPE_MESSAGE:
+            printf("OMG, chat message!\n");
             //Nolasa spēlētaja id un ziņas garumu
             pack = allocPack(8);
             safeRecv(convertedArgs->sockets.tcp, pack, 8, 0);
@@ -254,10 +255,16 @@ void* net_handleTcpPackets(void* arg) {
             if (playerId == convertedArgs->me->id) {
                 senderNick = convertedArgs->me->nick;
             } else {
+                printf("Chat from other player\n");
                 Player* playerPtr = hashmap_int_get(convertedArgs->hm_players, &playerId);
                 if (playerPtr != NULL) {
+                    printf("Found the one\n");
                     senderNick = playerPtr->nick;
                 }
+            }
+            
+            if (senderNick == NULL) {
+                senderNick = "UNKNOWN";
             }
             
             //Pievieno ziņu čatam

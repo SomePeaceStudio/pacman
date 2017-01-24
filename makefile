@@ -27,7 +27,8 @@ client: client/client.c shared/shared.h mkdir
 client_gui: client/main.c $(HEADERS_CLIENT_GUI) mkdir
 	$(CC) $(CFLAGS_CLIENT_GUI) $(SOURCES_CLIENT_GUI) -o $(BIN_CLIENT_GUI) $(LIBS_CLIENT_GUI)
 	cp client/res/tiles.png bin/
-	cp client/res/players.png bin/
+	cp client/res/pacman.png bin/
+	cp client/res/ghosts.png bin/
 	cp client/res/font.ttf bin/
 
 server: server/server.c shared/shared.h shared/threads.h mkdir

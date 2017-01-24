@@ -98,14 +98,16 @@ GameStatus game_showMainWindow(
     int windowWidth, windowHeight;
     Tile* tileSet;
     WTexture tileTexture;
-    WTexture playerTexture;
+    WTexture pacmanTexture;
+    WTexture ghostTexture;
     GameStatus returnStatus = GS_QUIT;
     PauseScreen pauseScreen;
     Chat chat;
     
     //Nepieciešams, lai varētu noteikt, vai struktūras ir inicializētas
     memset(&tileTexture, 0, sizeof(WTexture));
-    memset(&playerTexture, 0, sizeof(WTexture));
+    memset(&pacmanTexture, 0, sizeof(WTexture));
+    memset(&ghostTexture, 0, sizeof(WTexture));
     memset(&pauseScreen, 0, sizeof(PauseScreen));
     
     //Visi spēlētāju dati tiek glabāti heštabulā, kur atslēga ir spēlētāja id
@@ -165,7 +167,8 @@ GameStatus game_showMainWindow(
     }
     
     wtexture_fromFile(&tileTexture, renderer, "tiles.png");
-    wtexture_fromFile(&playerTexture, renderer, "players.png");
+    wtexture_fromFile(&pacmanTexture, renderer, "pacman.png");
+    wtexture_fromFile(&ghostTexture, renderer, "ghosts.png");
     
     tile_init();
     player_init();
@@ -405,11 +408,22 @@ GameStatus game_showMainWindow(
         //Renderē spēlētājus atmiņā
         void* iter; //Hashmap iterators
         Player* pl;
+        WTexture* spriteSheet;
         for (iter = hashmap_iter(&hm_players); iter; iter = hashmap_iter_next(&hm_players, iter)) {
             pl = hashmap_int_iter_get_data(iter);
-            player_render(pl, &camera, &playerTexture, renderer);
+            if (pl->type == PLTYPE_GHOST) {
+                spriteSheet = &ghostTexture;
+            } else {
+                spriteSheet = &pacmanTexture;
+            }
+            player_render(pl, &camera, spriteSheet, renderer);
         }
-        player_render(me, &camera, &playerTexture, renderer);
+        if (me->type == PLTYPE_GHOST) {
+            spriteSheet = &ghostTexture;
+        } else {
+            spriteSheet = &pacmanTexture;
+        }
+        player_render(me, &camera, spriteSheet, renderer);
         
         if (showScores) {
             char ** scores = getScoreText(&hm_players, me);
@@ -465,7 +479,8 @@ GameStatus game_showMainWindow(
     free(tileSet);
     hashmap_destroy(&hm_players);
     wtexture_free(&tileTexture);
-    wtexture_free(&playerTexture);
+    wtexture_free(&pacmanTexture);
+    wtexture_free(&ghostTexture);
     SDL_Quit();
     TTF_Quit();
     return returnStatus;

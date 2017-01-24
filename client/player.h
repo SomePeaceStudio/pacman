@@ -5,7 +5,7 @@
 
 //Spēlētāja ikonas jeb texture paltums un augstums
 #define PLAYER_SPRITE_SIZE 25
-#define TOTAL_PLAYER_SPRITES 2
+#define TOTAL_PLAYER_SPRITES 5
 
 typedef struct {
     int32_t id;

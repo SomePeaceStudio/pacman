@@ -62,7 +62,6 @@ void chat_render(Chat* chat, SDL_Renderer* renderer, TTF_Font* font, int windowH
     int yPos = 8;
     for(current = chat->first; current != NULL; current = current->next) {
         if (current->texture.texture == NULL) {
-            
             size_t lineLength = strlen(current->sender) + strlen(current->message) + 3;
             char* chatLine = safeMalloc(lineLength);
             snprintf(chatLine, lineLength, "%s: %s", current->sender, current->message);
