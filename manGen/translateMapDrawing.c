@@ -51,13 +51,11 @@ int main(int argc, char const *argv[])
         return 1;
     }
     debug_print("%s\n", "Opened both files!");   
-    // while((read = fread(buffer, 1, sizeof(buffer), mapDrawFile)) > 0){
     debug_print("%s\n", "Writting to temp file..");
     while(fscanf(mapDrawFile, "%s", buffer) > 0){
     	buffer[MAXBUFF-1] = '\0';
     	debug_print("Just read: %s count %d\n", buffer, (int)strlen(buffer));
     	if(!mapWidth) mapWidth = strlen(buffer);
-	    // buffer[read] = '\0';
 	    for (int i = 0; i < strlen(buffer); ++i){
 	    	if(buffer[i] == empty){
 	    		fprintf(tempFile, "%d %d %d\n", emptyVal, mapHeight, i);
