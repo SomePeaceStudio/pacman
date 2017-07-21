@@ -1,10 +1,9 @@
 # pacman
 The Pacman multiplayer game where players can play as a Pacman or a ghost, the rules are similar to [original Pacman][orig_pac] game.
-# Client & Server
-Client:
+# Client
 [![Pacman Client](https://raw.githubusercontent.com/SomePeaceStudio/packman/new-prot/pacman-client.png)](https://raw.githubusercontent.com/SomePeaceStudio/packman/new-prot/pacman-client.png)
 
-Server:
+# Server
 [![Pacman Server](https://raw.githubusercontent.com/SomePeaceStudio/packman/new-prot/pacman-server.png)](https://raw.githubusercontent.com/SomePeaceStudio/packman/new-prot/pacman-server.png)
 
 # To Build
@@ -26,7 +25,8 @@ The `makefile` also contains the following rules:
 
 Server:
 ```sh
-/pacman$ bin/server < port > < map, example: maps/21x21 >
+/pacman$ bin/server port map
+Example: /pacman$ bin/server 3000 maps/21x21
 ```
 
 Client:
@@ -37,7 +37,8 @@ Note: the client must be run from the `bin` folder.
 
 There is also a 'console' version of the client (w,a,s,d + Enter to move):
 ```sh
-/pacman/bin$ client < server address, example: 127.0.0.1 > < port >
+/pacman/bin$ client server port
+Example: /pacman/bin$ client 127.0.0.1 3000
 ```
 
 [orig_pac]: https://en.wikipedia.org/wiki/Pac-Man
